@@ -147,7 +147,14 @@ $Top = Join-Path $Tmp "durweg-$Version"
 & $PyExe @PyArgs (Join-Path $Top 'bin\durweg') --version | Out-Null
 if ($LASTEXITCODE -ne 0) { Stop-Install 'This Durweg version does not run here.' '这个版本的 Durweg 在这里运行不了。' }
 if (Test-Path $New) { if (Test-Path "$New.old") { Remove-Item -Recurse -Force "$New.old" }; Move-Item $New "$New.old" }
-Move-Item $Top $New
+try {
+    if ($env:DURWEG_TEST_FAIL_SWITCH) { throw 'switch failure injected for a test' }
+    Move-Item $Top $New
+} catch {
+    # put the previous copy back so the existing durweg.cmd keeps working (V1-C-006)
+    if ((Test-Path "$New.old") -and -not (Test-Path $New)) { Move-Item "$New.old" $New }
+    Stop-Install "Could not put $New in place; the previous version is kept." "无法放置 $New；保留原来的版本。"
+}
 if (Test-Path "$New.old") { Remove-Item -Recurse -Force "$New.old" }
 Remove-Item -Recurse -Force $Tmp
 Remove-Item -Force $Pkg -ErrorAction SilentlyContinue
