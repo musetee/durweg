@@ -190,7 +190,8 @@ def gate_command(run_dir, g, ctx):
     if argv[0] in ("python3", "python"):
         argv[0] = sys.executable
     env = dict(os.environ, WF_RUN=str(run_dir), WF_SNAPSHOT=snap, WF_STEP=ctx["step"],
-               WF_STATE=str(Path(run_dir) / ".wf" / "state.json"))
+               WF_STATE=str(Path(run_dir) / ".wf" / "state.json"),
+               DURWEG_PLATFORM=str(Path(__file__).resolve().parent.parent))   # to call the platform's checks
     out = Path(run_dir) / ".wf" / "gates" / f"{ctx['step']}-{ctx['index']}.out"
     try:
         r = subprocess.run(argv, cwd=run_dir, capture_output=True, text=True, encoding="utf-8",

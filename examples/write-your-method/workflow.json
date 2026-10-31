@@ -1,0 +1,75 @@
+{
+  "id": "write-your-method",
+  "title": "Write down your method and turn it into a workflow you can run",
+  "skill": "skills/write-your-method",
+  "snapshot": ["tools/generate.py", "tools/check_generated.py", "tools/register.py"],
+  "steps": [
+    {
+      "id": "describe",
+      "title": "Describe how you do it",
+      "instructions": "skills/write-your-method/SKILL.md#1-describe",
+      "artifacts": ["steps/1-method.md"],
+      "gates": [
+        {"type": "sections", "file": "steps/1-method.md", "headings": [
+          {"title": "Task", "min_chars": 10},
+          {"title": "How I do it", "min_items": 2},
+          {"title": "Where it goes wrong"},
+          {"title": "Where I decide"}]},
+        {"type": "user"}
+      ]
+    },
+    {
+      "id": "design",
+      "title": "Turn it into steps",
+      "instructions": "skills/write-your-method/SKILL.md#2-design",
+      "artifacts": ["steps/2-steps.json"],
+      "gates": [
+        {"type": "json", "file": "steps/2-steps.json", "schema": {
+          "type": "object", "required": ["name", "title", "steps"],
+          "properties": {
+            "name": {"type": "string"}, "title": {"type": "string"},
+            "steps": {"type": "array", "minItems": 2, "maxItems": 12, "items": {
+              "type": "object", "required": ["id", "title", "do", "deliver", "user"],
+              "properties": {"id": {"type": "string"}, "title": {"type": "string"}, "do": {"type": "string"},
+                             "deliver": {"type": "string"}, "user": {"type": "boolean"}}}}}}},
+        {"type": "command", "argv": ["python3", "{wf}/tools/check_generated.py", "design", "{run}"]},
+        {"type": "user"}
+      ]
+    },
+    {
+      "id": "build",
+      "title": "Build the workflow",
+      "instructions": "skills/write-your-method/SKILL.md#3-build",
+      "artifacts": ["generated/**"],
+      "gates": [
+        {"type": "command", "argv": ["python3", "{wf}/tools/check_generated.py", "build", "{run}"]},
+        {"type": "user"}
+      ]
+    },
+    {
+      "id": "register",
+      "title": "Put it in your library",
+      "instructions": "skills/write-your-method/SKILL.md#4-register",
+      "artifacts": ["steps/4-register.json"],
+      "gates": [
+        {"type": "json", "file": "steps/4-register.json", "schema": {
+          "type": "object", "required": ["name", "library_path", "digest"],
+          "properties": {"name": {"type": "string"}, "library_path": {"type": "string"},
+                         "digest": {"type": "string", "minLength": 64}}}},
+        {"type": "command", "argv": ["python3", "{wf}/tools/check_generated.py", "register", "{run}"]}
+      ]
+    },
+    {
+      "id": "try",
+      "title": "Run your new workflow once",
+      "instructions": "skills/write-your-method/SKILL.md#5-try",
+      "artifacts": ["steps/5-try.json"],
+      "gates": [
+        {"type": "json", "file": "steps/5-try.json", "schema": {
+          "type": "object", "required": ["run", "check"],
+          "properties": {"run": {"type": "string"}, "check": {"type": "string", "enum": ["PASS"]}}}},
+        {"type": "user"}
+      ]
+    }
+  ]
+}
