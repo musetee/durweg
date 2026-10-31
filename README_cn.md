@@ -6,6 +6,14 @@
 
 只给 agent 一份说明（skill），它可能跳过一步、替你做了决定，事后也查不出来。Durweg 让每一步过了检查才能往下走，在你的方法要你拍板的地方停下来问你，并留下一份你可以核对的记录。
 
+## 💻 系统要求
+
+| 你的电脑 | 需要什么 |
+| :--- | :--- |
+| **Windows** | • Windows 10 或 11<br>• Python 3.9 或更新；没有的话，安装程序会帮你装 Python 3.12 |
+| **Mac** | • `/usr/bin/python3` 是 Python 3.9 或更新：它来自苹果的开发者工具（Command Line Tools），没有的话安装程序会让 macOS 装上<br>• 旧的开发者工具带的是 Python 3.7 或 3.8：用 `/usr/bin/python3 --version` 查看，低于 3.9 就在“系统设置 → 通用 → 软件更新”里更新它 |
+| **Linux** | • Python 3.9 或更新、`curl` 和 `tar`<br>• Debian 或 Ubuntu 上，缺的东西安装程序会帮你装（sudo 会要你的系统密码） |
+
 ## 🧭 安装
 
 不需要 GitHub 账号。需要 Claude Code 或 Codex 的账号（用量算在你自己的套餐里）；电脑上还没有 agent 的，安装程序会帮你装。已经装了 Antigravity 的，它也会一起用上 Durweg。
@@ -30,23 +38,6 @@
    - 新建一个工作流：“用 durweg 运行 write-your-method”（就是[案例](#-案例写下你的方法)里的那个引导）。
    - 看看有哪些工作流：“列出我的 durweg 工作流”。
 
-## 📁 文件放在哪里
-
-| 什么 | 在哪里 | 里面有什么 |
-| :--- | :--- | :--- |
-| **你的设置和工作流** | `~/Durweg/` | • `config.json`：设置，其中有语言<br>• `workflows/`：你的工作流<br>• `library.json`：工作流的清单 |
-| **你的案例** | `~/Durweg/cases/` | 每个案例一个网页文件（`<工作流>_<运行>.html`），双击打开；可以移走或发给别人 |
-| **每次运行的记录** | 你启动它时所在项目文件夹的 `runs/` 下，一次运行一个文件夹 | • `steps/`：每一步交出的东西<br>• `run.md`：方便阅读的汇总（`durweg render <运行>`）<br>• `.wf/`：运行记录和锁定的工作流副本（不要改它） |
-
-**在 Windows 里找到它们：**
-
-| Durweg 装在 | 怎么找 |
-| :--- | :--- |
-| **Windows 本机** | `~/Durweg` 就是 `C:\Users\<你>\Durweg` |
-| **WSL** | • 资源管理器左侧栏：**Linux → Ubuntu → home → <你的 Linux 用户名>**<br>• 或者在 WSL 终端里运行 `explorer.exe .`，用资源管理器打开当前文件夹 |
-
-Mac 和 Linux 上，它们就在你的家目录里。
-
 ## 🚀 案例：写下你的方法
 
 这个案例展示 Durweg 怎么把你的一个固定做法变成工作流：以每周进度汇报为例，做出一个你自己的工作流 `weekly-report`，用它跑一次，最后写成一个可以收藏或分享给别人的案例网页。安装程序第一次会自动带你做；以后想再做一个，按下面的步骤。
@@ -70,6 +61,7 @@ agent 告诉你检查结果是 `PASS`，并且“列出我的 durweg 工作流�
 | 改语言 | `durweg config language zh`（或 `en`） |
 | 装到别的地方（在 Windows 上改装进 WSL） | 再运行一次安装程序，它问要不要修改时输入 `c` |
 | 把一次运行和 agent 自己的会话记录对照 | 可选插件 [durweg-audit](https://github.com/musetee/durweg-audit) |
+| 找到我的设置、案例和运行记录 | [文件放在哪里](docs/files_cn.md) |
 | 卸载 | `durweg uninstall`：保留 `~/Durweg` 和你的运行记录（[卸载](docs/uninstall_cn.md)） |
 
 ## 🛠️ 常见问题
@@ -77,6 +69,7 @@ agent 告诉你检查结果是 `PASS`，并且“列出我的 durweg 工作流�
 - **Windows 10：在安装窗口里登录不了 Claude。** 改在 Windows Terminal 里运行安装程序：打开一个命令提示符标签页，把 `Durweg-Install.bat` 拖进去，按回车（[详细步骤](docs/troubleshooting_cn.md#windows-10在安装窗口里登录不了-claude)）。
 - **装好 Durweg 以后才装了另一个 agent（比如先有 Codex，后装 Claude Code）：** 新装的 agent 还不会用 Durweg。再运行一次安装程序，问要不要修改时按回车，它会给电脑上所有的 agent 都装上 Durweg。
 - **agent 已经装了，安装程序却说没有找到：** 你的 agent 不在系统能直接找到的位置（比如要用一个脚本启动）。在“要装哪一个”时选 **3**：Durweg 会装好给 Claude Code 和 Codex 用的部分，你照平常的方式启动 agent，对它说“用 durweg 运行 write-your-method”。
+- **Mac：安装程序说需要 Python 3.9 或更新，可电脑上明明有新的：** 终端里排在前面的是一个旧的 Python（比如 Anaconda 自带的 3.8）。让它不再自动打开，再运行一次安装程序就行，不用重装 Python（[详细步骤](docs/troubleshooting_cn.md#mac安装程序说需要-python-39-或更新)）。
 
 ## 💬 安装时会遇到的提问
 
@@ -92,7 +85,7 @@ agent 告诉你检查结果是 `PASS`，并且“列出我的 durweg 工作流�
 
 ## 🙏 特别感谢
 
-感谢 [moraywang95-svg](https://github.com/moraywang95-svg) 和 [Qizhe-Xu](https://github.com/Qizhe-Xu) 在 Durweg 做出来的过程中帮我测试、提意见。
+感谢 [moraywang95-svg](https://github.com/moraywang95-svg) 和 [Qizhe-Xu](https://github.com/Qizhe-Xu) 在 Durweg 做出来的过程中帮我把概念成型、测试，还有提意见 😊
 
 ---
 

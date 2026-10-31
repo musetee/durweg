@@ -8,6 +8,14 @@ Given only instructions (a skill), an agent can skip a step or decide for you, a
 cannot tell. With Durweg each step must pass its checks before the next one starts, the agent stops
 and asks you where your method says you decide, and every run leaves a record you can check.
 
+## 💻 System requirements
+
+| Your computer | What it needs |
+| :--- | :--- |
+| **Windows** | • Windows 10 or 11<br>• Python 3.9 or newer; if it is missing, the installer installs Python 3.12 for you |
+| **Mac** | • Python 3.9 or newer at `/usr/bin/python3`; it comes with Apple's developer tools (Command Line Tools), which the installer asks macOS to install if they are missing<br>• Older developer tools bring Python 3.7 or 3.8; check with `/usr/bin/python3 --version` and, if it is older than 3.9, update them in System Settings → General → Software Update |
+| **Linux** | • Python 3.9 or newer, `curl` and `tar`<br>• On Debian or Ubuntu the installer installs what is missing (sudo asks for your password) |
+
 ## 🧭 Install
 
 You need no GitHub account. You need an account for Claude Code or Codex (use counts against your
@@ -40,23 +48,6 @@ at the end of this page.
    - Make a new workflow: "Run write-your-method with durweg." (the guide from the
      [example](#-example-write-down-your-method)).
    - See what you have: "Show me my durweg workflows."
-
-## 📁 Where your files are
-
-| What | Where | What is in it |
-| :--- | :--- | :--- |
-| **Your settings and workflows** | `~/Durweg/` | • `config.json`: the settings, with the language<br>• `workflows/`: your workflows<br>• `library.json`: the list of them |
-| **Your cases** | `~/Durweg/cases/` | One web page per case (`<workflow>_<run>.html`); double-click to open; move or send it as you like |
-| **The record of each run** | under `runs/` in the project folder you started it from, one folder per run | • `steps/`: what each step delivered<br>• `run.md`: a readable summary (`durweg render <run>`)<br>• `.wf/`: the record and the locked copy of the workflow (do not edit it) |
-
-**Finding them in Windows:**
-
-| Durweg is installed | How to find them |
-| :--- | :--- |
-| **on Windows itself** | `~/Durweg` is `C:\Users\<you>\Durweg` |
-| **in WSL** | • In File Explorer's left pane: **Linux → Ubuntu → home → <your Linux user name>**<br>• Or run `explorer.exe .` in the WSL terminal to open the current folder |
-
-On a Mac and on Linux they are in your home folder.
 
 ## 🚀 Example: write down your method
 
@@ -94,6 +85,7 @@ To use the workflow yourself: [durweg-human-readme](https://github.com/musetee/d
 | Change the language | `durweg config language en` (or `zh`) |
 | Install somewhere else (on Windows: into WSL) | Run the installer again and type `c` when it asks whether to change Durweg |
 | Compare a run with the agent's own session files | The optional plugin [durweg-audit](https://github.com/musetee/durweg-audit) |
+| Find my settings, cases and run records | [Where your files are](docs/files.md) |
 | Remove Durweg | `durweg uninstall`: keeps `~/Durweg` and your runs ([uninstall](docs/uninstall.md)) |
 
 ## 🛠️ Common problems
@@ -108,6 +100,10 @@ To use the workflow yourself: [durweg-human-readme](https://github.com/musetee/d
   system looks (for example you start it with a script). Choose **3** at "which one should be
   installed": Durweg sets itself up for Claude Code and Codex; start your agent as usual and tell it
   "Run write-your-method with durweg."
+- **Mac: the installer says Durweg needs Python 3.9 or newer, though your Mac has a newer one:** an
+  older Python (for example Anaconda's 3.8) comes first in Terminal. Stop it from starting on its
+  own, then run the installer again; no need to reinstall Python
+  ([step by step](docs/troubleshooting.md#mac-the-installer-says-durweg-needs-python-39-or-newer)).
 
 ## 💬 Questions during installation
 
@@ -123,7 +119,7 @@ To use the workflow yourself: [durweg-human-readme](https://github.com/musetee/d
 
 ## 🙏 Special thanks
 
-Thanks to [moraywang95-svg](https://github.com/moraywang95-svg) and [Qizhe-Xu](https://github.com/Qizhe-Xu) for testing Durweg and giving feedback while it was being made.
+Thanks to [moraywang95-svg](https://github.com/moraywang95-svg) and [Qizhe-Xu](https://github.com/Qizhe-Xu) for helping me shape the idea of Durweg, testing it and giving feedback while it was being made 😊
 
 ---
 
