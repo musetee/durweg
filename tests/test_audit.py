@@ -662,7 +662,7 @@ class Quoting(WfCase):
         self.assertEqual(rc, 1, out)
 
     def test_double_quoted_and_escaped(self):
-        rc, out = self.cached(lambda s: f'echo "x && wf {s} {self.run} topic" \; wf\\ {s} && cat cache')
+        rc, out = self.cached(lambda s: f'echo "x && wf {s} {self.run} topic" \\; wf\\ {s} && cat cache')
         self.assertEqual(rc, 1, out)
 
     def test_unbalanced_quote_is_a_gap_not_evidence(self):
