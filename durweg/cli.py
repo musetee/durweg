@@ -299,7 +299,7 @@ def cmd_library(a):
     elif a.action == "available":
         return _available()
     elif a.action == "update":
-        return _update([a.target] if a.target else None)
+        return _update([a.target] if a.target else None, quiet=a.quiet)
     else:
         items = library.entries()
         if not items:
@@ -339,25 +339,40 @@ def _available():
     return 0
 
 
-def _update(names):
+def _update(names, quiet=False):
     """Plan v1.1 C5: the catalogs, then every workflow Durweg cloned; one line each, then a sum.
-    Exit 0 even when some were skipped or failed: those are reported, the rest is done."""
+    Exit 0 even when some were skipped or failed: those are reported, the rest is done.
+    quiet (the installers): only what changed or needs attention."""
     from . import catalog
     counts = {}
     if not names:
         for cid, entry in sorted(catalog.enabled().items()):
             reason = catalog.refresh(cid, entry["url"])
-            print(f"catalog {cid}: " + (f"not refreshed ({reason}); the last copy is kept" if reason else "refreshed"))
+            if reason:
+                print(f"catalog {cid}: not refreshed ({reason}); the last copy is kept")
+            elif not quiet:
+                print(f"catalog {cid}: refreshed")
     rows = library.update(names)
+    shown = 0
     for name, status, detail in rows:
         counts[status] = counts.get(status, 0) + 1
+        if quiet and (status == "unchanged" or (status == "skipped" and detail.startswith("your own folder"))):
+            continue
         print(f"{name:23} {status:9} {detail}")
-    if not rows and not names:
+        shown += 1
+    if not rows and not names and not quiet:
         print("the library is empty")
-    print("summary: " + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("updated", "unchanged", "skipped", "failed")))
-    if counts.get("failed") or counts.get("skipped"):
+    if shown or not quiet:
+        print("summary: " + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("updated", "unchanged", "skipped", "failed")))
+    attention = sum(1 for _, st, d in rows if st == "failed" or (st == "skipped" and not d.startswith("your own folder")))
+    if attention:
         print("warning: some were not updated; the reasons are on their lines", file=sys.stderr)
     return 0
+
+
+def cmd_update(a):
+    from . import selfupdate
+    return selfupdate.main_update()
 
 
 def cmd_catalog(a):
@@ -482,6 +497,8 @@ def main(argv=None):
                    help="add: a name, <catalog>:<name>, a folder (./name) or a git address; remove: a name; "
                         "update: a name (all when left out)")
     p.add_argument("--name")
+    p.add_argument("--quiet", action="store_true", help="update: show only what changed or needs attention")
+    p = sub.add_parser("update", help="update Durweg itself to the newest release, then the catalogs and workflows")
     p = sub.add_parser("catalog", help="the catalogs of workflows that can be installed by name")
     p.add_argument("action", choices=["add", "list", "remove"])
     p.add_argument("id", nargs="?", help="the catalog's name (public is the public catalog)")
@@ -504,7 +521,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     fn = {"start": cmd_start, "begin": cmd_begin, "propose": cmd_propose, "confirm": cmd_confirm,
           "done": cmd_done, "reopen": cmd_reopen, "status": cmd_status, "render": cmd_render,
-          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "catalog": cmd_catalog, "runs": cmd_runs, "uninstall": cmd_uninstall, "config": cmd_config}[a.cmd]
+          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "catalog": cmd_catalog, "update": cmd_update, "runs": cmd_runs, "uninstall": cmd_uninstall, "config": cmd_config}[a.cmd]
     try:
         rc = fn(a)
     except WfError as e:

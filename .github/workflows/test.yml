@@ -88,6 +88,37 @@ jobs:
           if (Test-Path $D) { throw "launcher still there" }
           if (Test-Path "$env:LOCALAPPDATA\Durweg\v0.0.0-ci") { throw "platform still there" }
           if (-not (Test-Path "$HOME\Durweg\config.json")) { throw "config removed" }
+      - name: durweg update to a newer release (Windows, plan v1.1 U1)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python tools/package.py v0.0.1 "$env:RUNNER_TEMP\pkg1"
+          python tools/package.py v0.0.2 "$env:RUNNER_TEMP\pkg2"
+          $env:DURWEG_VERSION = "v0.0.1"
+          $env:DURWEG_SOURCE = "$env:RUNNER_TEMP\pkg1\durweg-v0.0.1.zip"
+          $env:DURWEG_SHA256 = ((Get-Content "$env:DURWEG_SOURCE.sha256") -split '\s+')[0]
+          cmd /c Durweg-Install.bat
+          if ($LASTEXITCODE -ne 0) { throw "installer exit $LASTEXITCODE" }
+          $D = "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd"
+          # the one-line launcher still hands back the exit code
+          & $D start no-such-workflow x; if ($LASTEXITCODE -eq 0) { throw "launcher lost the exit code" }
+          Remove-Item Env:DURWEG_VERSION
+          $env:DURWEG_UPDATE_LATEST = "v0.0.2"
+          $env:DURWEG_UPDATE_INSTALLER = "$PWD\Durweg-Install.bat"
+          $env:DURWEG_SOURCE = "$env:RUNNER_TEMP\pkg2\durweg-v0.0.2.zip"
+          $env:DURWEG_SHA256 = ((Get-Content "$env:DURWEG_SOURCE.sha256") -split '\s+')[0]
+          $out = & $D update 2>&1 | Out-String; $rcode = $LASTEXITCODE; $out
+          if ($rcode -ne 0) { throw "update exit $rcode" }
+          if ($out -notmatch 'updated\s+v0\.0\.1 -> v0\.0\.2') { throw "not updated" }
+          # durweg update rewrote the durweg.cmd that was running it: cmd.exe must not read on
+          if ($out -match 'is not recognized|not recognised') { throw "cmd.exe read on in the rewritten launcher" }
+          if ((Get-Content "$HOME\Durweg\.install.json" -Raw | ConvertFrom-Json).version -ne 'v0.0.2') { throw "manifest" }
+          if (-not ((Get-Content $D) -match 'v0\.0\.2')) { throw "launcher not switched" }
+          & $D --version; if ($LASTEXITCODE -ne 0) { throw "version after update" }
+          $out = & $D update 2>&1 | Out-String; $out
+          if ($out -notmatch 'unchanged\s+v0\.0\.2 is the newest') { throw "second update" }
+          & $D uninstall; if ($LASTEXITCODE -ne 0) { throw "uninstall" }
+          Start-Sleep -Seconds 6
       - name: Python in a folder with spaces (V1-C-007)
         if: runner.os == 'Windows'
         shell: pwsh

@@ -86,6 +86,8 @@ To use the workflow yourself: [durweg-human-readme](https://github.com/musetee/d
 | Install somewhere else (on Windows: into WSL) | Run the installer again and type `c` when it asks whether to change Durweg |
 | Compare a run with the agent's own session files | The optional plugin [durweg-audit](https://github.com/musetee/durweg-audit) |
 | Find my settings, cases and run records | [Where your files are](docs/files.md) |
+| Install a ready-made workflow | Tell your agent "Show me the durweg workflows I can install", then `durweg library add <name>` ([catalogs](docs/workflow-format.md#catalogs)) |
+| Update Durweg and the workflows you installed | `durweg update` ([updating](docs/update.md)) |
 | Remove Durweg | `durweg uninstall`: keeps `~/Durweg` and your runs ([uninstall](docs/uninstall.md)) |
 
 ## 🛠️ Common problems

@@ -42,7 +42,7 @@ class Install(unittest.TestCase):
     def install(self, version="v9.0.0", pkg=None, **env):
         e = {"HOME": str(self.home), "PATH": "/usr/bin:/bin", "SHELL": "/bin/bash",
              "DURWEG_VERSION": version, "DURWEG_SOURCE": str(pkg or self.pkg), "DURWEG_NO_START": "1",
-             "DURWEG_AGENT": "skip"}
+             "DURWEG_AGENT": "skip", "DURWEG_PUBLIC_CATALOG": str(self.tmp / "no-catalog.git")}
         e.update(env)
         return subprocess.run(["bash", str(ROOT / "install.sh")], capture_output=True, text=True, env=e,
                               stdin=subprocess.DEVNULL, timeout=120)
@@ -57,9 +57,77 @@ class Install(unittest.TestCase):
     def manifest(self):
         return json.loads((self.home / "Durweg/.install.json").read_text(encoding="utf-8"))
 
-    def durweg(self, *args):
+    def durweg(self, *args, **env):
+        e = {"HOME": str(self.home), "PATH": "/usr/bin:/bin", "DURWEG_PUBLIC_CATALOG": str(self.tmp / "no-catalog.git")}
+        e.update(env)
         return subprocess.run([str(self.home / ".local/bin/durweg"), *map(str, args)], capture_output=True,
-                              text=True, env={"HOME": str(self.home), "PATH": "/usr/bin:/bin"})
+                              text=True, env=e, stdin=subprocess.DEVNULL, timeout=300)
+
+    # -- durweg update (plan v1.1 C5, U1) --------------------------------------------------------
+    def package(self, version):
+        folder = self.tmp / version
+        folder.mkdir()
+        return build_package(folder, version)[0]
+
+    def update(self, latest, pkg=None, **env):
+        e = {"DURWEG_UPDATE_LATEST": latest, "DURWEG_UPDATE_INSTALLER": str(ROOT / "install.sh")}
+        if pkg:
+            e["DURWEG_SOURCE"] = str(pkg)
+        e.update(env)
+        return self.durweg("update", **e)
+
+    def test_durweg_update_to_a_newer_release_keeps_the_choices(self):
+        self.assertEqual(self.install(DURWEG_LANG="zh").returncode, 0)
+        pkg2 = self.package("v9.1.0")
+        r = self.update("v9.1.0", pkg2)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertRegex(r.stdout, r"Durweg +updated +v9\.0\.0 -> v9\.1\.0")
+        self.assertEqual(self.manifest()["version"], "v9.1.0")
+        data = self.home / ".local/share/durweg"
+        self.assertEqual(os.readlink(data / "current"), str(data / "v9.1.0"))
+        self.assertEqual(json.loads((self.home / "Durweg/config.json").read_text(encoding="utf-8"))["language"], "zh")
+        self.assertIn("summary:", r.stdout)                         # the library was updated afterwards
+        self.assertEqual(r.stdout.count("summary:"), 1)             # once, not again inside the installer
+        self.assertNotIn("Durweg 装好了", r.stdout)                  # the installer's own output stays inside
+        r = self.update("v9.1.0")
+        self.assertRegex(r.stdout, r"Durweg +unchanged +v9\.1\.0 is the newest")
+        r = self.update("v9.0.5")
+        self.assertIn("unchanged", r.stdout)                        # never downgrades
+
+    def test_durweg_update_failure_keeps_the_version(self):
+        self.assertEqual(self.install().returncode, 0)
+        pkg2 = self.package("v9.1.0")
+        r = self.update("v9.1.0", pkg2, DURWEG_SHA256="0" * 64)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertRegex(r.stdout, r"Durweg +failed .*sha256.*v9\.0\.0 is kept")
+        self.assertEqual(self.manifest()["version"], "v9.0.0")
+        self.assertEqual(self.durweg("--version").returncode, 0)
+
+    def test_durweg_update_offline_is_skipped(self):
+        self.assertEqual(self.install().returncode, 0)
+        r = self.durweg("update", DURWEG_UPDATE_RELEASES="http://127.0.0.1:9/latest")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertRegex(r.stdout, r"Durweg +skipped +cannot ask GitHub")
+        self.assertIn("summary:", r.stdout)
+
+    def test_rerun_updates_git_workflows_quietly(self):
+        self.assertEqual(self.install().returncode, 0)
+        r = self.install()
+        self.assertNotIn("summary:", r.stdout)                     # only the example (a folder): nothing to say
+        work = self.tmp / "wf"
+        shutil.copytree(ROOT / "examples" / "mini", work)
+        g = lambda *a: subprocess.run(["git", "-C", str(work), *a], check=True, capture_output=True,
+                                      env={"PATH": "/usr/bin:/bin", "HOME": str(self.home), "GIT_AUTHOR_NAME": "t",
+                                           "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"})
+        g("init", "-q", "-b", "main"); g("add", "-A"); g("commit", "-q", "-m", "v1")
+        bare = self.tmp / "mini.git"
+        subprocess.run(["git", "clone", "-q", "--bare", str(work), str(bare)], check=True, capture_output=True)
+        self.assertEqual(self.durweg("library", "add", bare).returncode, 0)
+        (work / "skills/mini/SKILL.md").write_text("changed\n")
+        g("commit", "-q", "-am", "v2"); g("push", "-q", str(bare), "main")
+        r = self.install()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertRegex(r.stdout, r"mini +updated")
 
     def test_fresh_install_and_rerun(self):
         r = self.install(DURWEG_LANG="zh")

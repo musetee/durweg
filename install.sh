@@ -11,6 +11,7 @@
 # Settings for testing and for the double-click launchers (normally not needed):
 #   DURWEG_LANG=en|zh  DURWEG_AGENT=claude|codex|skip  DURWEG_NO_START=1
 #   DURWEG_SOURCE=<path or URL of durweg-<version>.tar.gz>  DURWEG_SHA256=<its sha256>
+#   DURWEG_UPDATE=1 (set by durweg update: keep the last choices, ask nothing)
 set -uo pipefail
 
 VERSION="${DURWEG_VERSION:-v1.0.1}"
@@ -20,6 +21,9 @@ BIN="$HOME/.local/bin"
 DHOME="${DURWEG_HOME:-$HOME/Durweg}"
 OS="$(uname -s)"
 TTY=/dev/tty; { : < "$TTY"; } 2>/dev/null || TTY=''
+# update mode (durweg update, plan v1.1 U1): the last choices, no questions, nothing new for agents,
+# no browser, no agent start, and the library is left to durweg update
+if [ -n "${DURWEG_UPDATE:-}" ]; then TTY=''; DURWEG_AGENT=skip; DURWEG_NO_START=1; fi
 
 # ---- language ---------------------------------------------------------------------------------
 LANG_CHOICE="${DURWEG_LANG:-}"
@@ -228,6 +232,13 @@ json.dump({"format": 1, "version": version, "sha256": sha, "platform_dir": os.pa
            "data_dir": data, "launchers": [launcher], "skills": skills, "path_lines": list(dict.fromkeys(lines))},
           open(p, "w", encoding="utf-8"), indent=1)
 PY
+
+# ---- your workflows from git, to their newest version (plan v1.1 C5) ---------------------------
+# not in update mode: durweg update does this itself, with the new version, once
+if [ -z "${DURWEG_UPDATE:-}" ]; then
+    durweg library update --quiet || say "Your workflows could not be updated now; durweg update tries again." \
+                                         "你的工作流现在没能更新；durweg update 会再试一次。"
+fi
 
 # ---- the guide: the README on GitHub opens in the browser ---------------------------------------
 GUIDE="${DURWEG_GUIDE:-https://github.com/$REPO/blob/$VERSION/}$(t README.md README_cn.md)"

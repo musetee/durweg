@@ -285,3 +285,12 @@ class ReviewRegressions2a(UpdateCase):
         (home / "library.json").write_text(json.dumps(lib))
         self.assertIn("unchanged", self.line(self.wf("library", "update")))
         self.assertEqual(self.lib()["mini"]["branch"], "main")
+
+
+class DurwegUpdateWithoutInstaller(UpdateCase):
+    def test_source_checkout_skips_the_platform_and_updates_the_library(self):
+        new = self.publish()
+        out = self.wf("update")
+        self.assertRegex(out, r"Durweg +skipped +this Durweg was not installed by the installer")
+        self.assertIn("updated", self.line(out))
+        self.assertEqual(self.rev(self.dest), new)

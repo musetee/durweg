@@ -59,6 +59,13 @@ if ($env:DURWEG_TEST_PROBE) { Write-Host "probe installed=$(Test-WslDurweg)"; ex
 $SetupFile = Join-Path $Local 'setup.json'
 $setup = Read-Json $SetupFile
 $Lang = $env:DURWEG_LANG
+# update mode (durweg update, plan v1.1 U1): the last choices, no questions, nothing new for agents,
+# no browser, no agent start, and the library is left to durweg update
+if ($env:DURWEG_UPDATE) {
+    $env:DURWEG_AGENT = 'skip'; $env:DURWEG_NO_START = '1'
+    if (-not $Lang -and $setup) { $Lang = $setup.language }
+    if (-not $env:DURWEG_TARGET -and $setup) { $env:DURWEG_TARGET = $setup.target }
+}
 if (-not $Lang -and $setup -and $setup.language -and -not $env:DURWEG_TARGET) {
     # a rerun: say what is there, ask whether to change it; Enter keeps (e.g. after the WSL restart)
     if ($setup.target -eq 'wsl') { $installed = Test-WslDurweg } else { $installed = Test-Path (Join-Path $Local 'bin\durweg.cmd') }
@@ -261,7 +268,9 @@ if ((Test-Path $Launcher) -and -not ([IO.File]::ReadAllText($Launcher) -like "*$
     Stop-Install "$Launcher belongs to another program; it is left as it is." "$Launcher 属于别的程序，保持原样不动。"   # V1-C-005
 }
 $pyLine = ('"' + $PyExe + '" ' + ($PyArgs -join ' ')).Trim()     # quoted: a user name may hold spaces (V1-C-007)
-[IO.File]::WriteAllText($Launcher, "@echo off`r`n$Mark`r`n$pyLine `"$New\bin\durweg`" %*`r`n", $Utf8)
+# one line that ends the batch file: durweg update rewrites this file while cmd.exe is still in it,
+# and cmd.exe reads a batch file line by line, so nothing after the command may be read (plan v1.1 U1)
+[IO.File]::WriteAllText($Launcher, "@echo off`r`n$Mark`r`n$pyLine `"$New\bin\durweg`" %* & exit /b`r`n", $Utf8)
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $pathEntries = @()
 if (-not (($userPath -split ';') -contains $BinDir)) {
@@ -367,6 +376,13 @@ if ($old -and $old.path_entries) { $pathEntries = @($old.path_entries) + $pathEn
 Write-Json (Join-Path $DHome '.install.json') ([ordered]@{
     format = 1; version = $Version; sha256 = $Sha.ToLower(); platform_dir = $New; data_dir = $Local
     launchers = @($Launcher); skills = @($skills); path_lines = @(); path_entries = @($pathEntries) })
+
+# ---- your workflows from git, to their newest version (plan v1.1 C5) ---------------------------
+# not in update mode: durweg update does this itself, with the new version, once
+if (-not $env:DURWEG_UPDATE) {
+    & $Launcher library update --quiet
+    if ($LASTEXITCODE -ne 0) { Say 'Your workflows could not be updated now; durweg update tries again.' '你的工作流现在没能更新；durweg update 会再试一次。' }
+}
 
 # ---- the guide: the README on GitHub opens in the browser ---------------------------------------
 $g = if ($env:DURWEG_GUIDE) { $env:DURWEG_GUIDE } elseif ($rc -and $rc.guide) { $rc.guide } else { "https://github.com/$Repo/blob/$Version/" }
