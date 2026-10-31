@@ -76,6 +76,10 @@ jobs:
           $D = "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd"
           & $D --version; if ($LASTEXITCODE -ne 0) { throw "version" }
           $lib = & $D library list; $lib; if (-not ($lib -match 'write-your-method')) { throw "library" }
+          # V1-C-006: a failed switch puts the previous copy back; durweg keeps working
+          $env:DURWEG_TEST_FAIL_SWITCH = "1"; cmd /c Durweg-Install.bat; $rcode = $LASTEXITCODE; Remove-Item Env:DURWEG_TEST_FAIL_SWITCH
+          if ($rcode -eq 0) { throw "an injected switch failure was not reported" }
+          & $D --version; if ($LASTEXITCODE -ne 0) { throw "durweg broken after a failed switch" }
           & $D start write-your-method ci --runs "$env:RUNNER_TEMP\runs"; if ($LASTEXITCODE -ne 0) { throw "start" }
           $run = Get-ChildItem "$env:RUNNER_TEMP\runs" | Select-Object -First 1
           & $D status $run.FullName; if ($LASTEXITCODE -ne 0) { throw "status" }

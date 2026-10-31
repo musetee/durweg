@@ -96,7 +96,9 @@ mkdir -p "$work/x" && tar -xzf "$pkg" -C "$work/x" || stop "Unpacking failed." "
 top="$(find "$work/x" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 python3 "$top/bin/durweg" --version >/dev/null 2>&1 || stop "This Durweg version does not run here." "这个版本的 Durweg 在这里运行不了。"
 if [ -e "$new" ]; then rm -rf "$new.old"; mv "$new" "$new.old"; fi
-mv "$top" "$new" || { [ -e "$new.old" ] && mv "$new.old" "$new"; stop "Could not put $new in place." "无法放置 ${new}。"; }
+{ [ -z "${DURWEG_TEST_FAIL_SWITCH:-}" ] && mv "$top" "$new"; } || {
+    [ -e "$new.old" ] && [ ! -e "$new" ] && mv "$new.old" "$new"     # the previous copy stays usable (V1-C-006)
+    stop "Could not put $new in place; the previous version is kept." "无法放置 ${new}；保留原来的版本。"; }
 rm -rf "$new.old"
 ln -sfn "$new" "$DATA/current"      # -n: replace the link itself (GNU and BSD/macOS)
 [ "$(readlink "$DATA/current")" = "$new" ] || stop "Could not switch to $new." "无法切换到 $new。"

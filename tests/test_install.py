@@ -169,6 +169,13 @@ class Install(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertEqual(self.durweg("--version").returncode, 0)
 
+    def test_failed_switch_keeps_the_previous_copy(self):               # V1-C-006
+        self.install()
+        r = self.install(DURWEG_TEST_FAIL_SWITCH="1")
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("previous version is kept", r.stdout)
+        self.assertEqual(self.durweg("--version").returncode, 0)
+
     def test_settings_folder_alone_is_no_agent(self):                   # V1-C-004
         (self.home / ".claude").mkdir()
         r = self.install()
