@@ -8,7 +8,7 @@ import re
 import sys
 from pathlib import Path
 
-from . import gates, workflow
+from . import gates, library, workflow
 from .state import STATE, RunState, replay
 from .util import RunLock, WfError, now, sha256_json, write_json
 
@@ -76,7 +76,8 @@ class Run:
 def cmd_start(a):
     if not SLUG.match(a.slug):
         raise WfError(f"slug must match {SLUG.pattern}")
-    wf = workflow.load(a.workflow)
+    src, lib_name = library.resolve(a.workflow)
+    wf = workflow.load(src)
     workflow.check_platform(wf)
     files = workflow.snapshot_sources(wf)
     kind, commit, dirty = workflow.repo_state(wf, files, a.dev)
@@ -93,12 +94,14 @@ def cmd_start(a):
         "workflow": {"id": wf.id, "source": str(wf.root), "source_kind": kind, "commit": commit,
                      "dev": bool(a.dev), "dirty": dirty, "manifest": manifest,
                      "digest": sha256_json(manifest)},
-        "trial": bool(a.trial), "agent": a.agent or agent, "session": a.session or session}]}
+        "trial": bool(a.trial), "agent": a.agent or agent, "session": a.session or session,
+        "library": lib_name}]}
     write_json(run_dir / STATE, data)
     (run_dir / "steps").mkdir(exist_ok=True)
     run = Run(run_dir)
+    note = library.record_run(run_dir, wf.id, lib_name, data["events"][0]["t"])
     ok(run.st, 1, f"run directory: {run_dir}" + ("\n(dev run: not usable for acceptance)" if a.dev else "")
-       + f"\n{run.next_hint()}")
+       + f"\n{run.next_hint()}" + (f"\n{note}" if note else ""))
 
 
 def with_run(fn):
@@ -277,6 +280,50 @@ def cmd_render(a):
     return 0
 
 
+def cmd_library(a):
+    if a.action in ("add", "remove") and not a.target:
+        raise WfError(f"durweg library {a.action} needs a {'folder or git address' if a.action == 'add' else 'name'}")
+    if a.action == "add":
+        name, path = library.add(a.target, a.name)
+        print(f"added {name}: {path}\nrun it with: durweg start {name} <name-of-this-run>")
+    elif a.action == "remove":
+        path = library.remove(a.target)
+        print(f"removed {a.target} from the library (the folder {path} is kept)")
+    else:
+        items = library.entries()
+        if not items:
+            print(f"the library is empty ({library.home() / 'library.json'})")
+        for name, e in sorted(items.items()):
+            p = Path(e["path"])
+            try:
+                plats = ", ".join(workflow.load(p).data.get("platforms") or workflow.PLATFORMS)
+                state = ""
+            except WfError:
+                plats, state = "?", "  (missing or invalid)"
+            print(f"{name:20} {plats:24} {p}{state}")
+    return 0
+
+
+def cmd_runs(a):
+    if a.rebuild:
+        n = library.rebuild(a.rebuild)
+        print(f"found {n} run(s) under {a.rebuild}; index: {library.home() / 'runs.json'}")
+        return 0
+    rows = library.runs()
+    if not rows:
+        print("no runs recorded yet")
+    for r in rows:
+        rd = Path(r["path"])
+        try:
+            run = Run(rd)
+            done = sum(1 for v in run.rp.status.values() if v == "done")
+            state = "done" if done == len(run.wf.order) else f"{done}/{len(run.wf.order)} steps"
+        except (WfError, OSError, ValueError, KeyError):
+            state = "missing" if not rd.exists() else "unreadable"
+        print(f"{r.get('started', '')[:16]:16}  {r.get('library') or r.get('workflow') or '?':20} {state:12} {rd}")
+    return 0
+
+
 def cmd_check(a):
     from .check import check
     return check(Path(a.run).expanduser().resolve())
@@ -299,7 +346,7 @@ def main(argv=None):
     ap.add_argument("--version", action="version", version=f"durweg {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("start", help="start a run of a workflow")
-    p.add_argument("workflow", help="path to the workflow repository (with workflow.json)")
+    p.add_argument("workflow", help="a name in the library, or a folder with workflow.json (./name, /path)")
     p.add_argument("slug")
     p.add_argument("--runs", default="runs", help="directory that holds runs (default ./runs)")
     p.add_argument("--trial", action="store_true", help="a trial run: its choices are not formal decisions")
@@ -319,6 +366,12 @@ def main(argv=None):
     p.add_argument("run")
     p.add_argument("step")
     p.add_argument("--reason", required=True)
+    p = sub.add_parser("library", help="the method library in ~/Durweg")
+    p.add_argument("action", choices=["add", "list", "remove"])
+    p.add_argument("target", nargs="?", help="add: a folder or git address; remove: a name")
+    p.add_argument("--name")
+    p = sub.add_parser("runs", help="list the runs started on this computer")
+    p.add_argument("--rebuild", metavar="FOLDER", help="scan FOLDER for runs and add them to the index")
     p = sub.add_parser("status")
     p.add_argument("run", nargs="?")
     p = sub.add_parser("render")
@@ -331,7 +384,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     fn = {"start": cmd_start, "begin": cmd_begin, "propose": cmd_propose, "confirm": cmd_confirm,
           "done": cmd_done, "reopen": cmd_reopen, "status": cmd_status, "render": cmd_render,
-          "check": cmd_check, "audit": cmd_audit}[a.cmd]
+          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "runs": cmd_runs}[a.cmd]
     try:
         rc = fn(a)
     except WfError as e:

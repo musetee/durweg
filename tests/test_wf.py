@@ -599,3 +599,75 @@ class Platforms(WfCase):
         finally:
             workflow.current_platform = orig
         self.assertIn("WSL", str(cm.exception))
+
+
+class Library(WfCase):
+    """Plan 2.4: library add/list/remove, start by name, runs index."""
+
+    def home(self):
+        return Path(os.environ["DURWEG_HOME"])
+
+    def test_add_start_by_name_and_runs(self):
+        self.assertIn("added mini", self.wf("library", "add", self.repo))
+        self.assertIn("mini", self.wf("library", "list"))
+        self.wf("start", "mini", "byname", "--runs", self.runs)
+        self.run = next(self.runs.glob("*_byname"))
+        self.assertEqual(self.events()[0]["library"], "mini")
+        self.full()
+        self.assertEqual(self.check()[0], 0)
+        out = self.wf("runs")
+        self.assertIn("done", out)
+        self.assertIn(str(self.run), out)
+
+    def test_duplicate_name_refused(self):
+        self.wf("library", "add", self.repo)
+        self.assertIn("choose another with --name", self.wf("library", "add", self.repo, expect=1))
+        self.assertIn("added other", self.wf("library", "add", self.repo, "--name", "other"))
+
+    def test_unknown_name_and_path_rule(self):
+        out = self.wf("start", "nosuch", "x", "--runs", self.runs, expect=1)
+        self.assertIn("for a folder write ./nosuch", out)
+        from durweg.library import looks_like_path
+        for p in ("./a", "../a", "/a", "~/a", "a/b", "C:\\x", "a\\b"):
+            self.assertTrue(looks_like_path(p), p)
+        self.assertFalse(looks_like_path("mini"))
+
+    def test_invalid_folder_refused(self):
+        bad = self.tmp / "bad"
+        bad.mkdir()
+        (bad / "workflow.json").write_text("{}")
+        self.assertIn("missing 'id'", self.wf("library", "add", bad, expect=2))
+
+    def test_remove_keeps_the_folder(self):
+        self.wf("library", "add", self.repo)
+        self.assertIn("is kept", self.wf("library", "remove", "mini"))
+        self.assertTrue((self.repo / "workflow.json").is_file())
+
+    def test_moved_source_does_not_break_old_run(self):
+        self.wf("library", "add", self.repo)
+        self.wf("start", "mini", "mv", "--runs", self.runs)
+        self.run = next(self.runs.glob("*_mv"))
+        self.full()
+        self.repo.rename(self.tmp / "gone")
+        self.assertEqual(self.check()[0], 0)
+        self.assertIn("missing or invalid", self.wf("library", "list"))
+
+    def test_broken_index_and_rebuild(self):
+        self.start()
+        (self.home() / "runs.json").write_text("{broken")
+        self.assertIn("cannot be read", self.wf("runs", expect=1))
+        self.assertTrue(self.run.is_dir())                        # the run itself is untouched
+        (self.home() / "runs.json").unlink()
+        self.assertIn("found 1 run", self.wf("runs", "--rebuild", self.runs))
+        self.assertIn(str(self.run), self.wf("runs"))
+
+    def test_git_address_needs_git(self):
+        old = os.environ["PATH"]
+        empty = self.tmp / "empty-bin"
+        empty.mkdir()
+        os.environ["PATH"] = str(empty)
+        try:
+            out = self.wf("library", "add", "https://example.invalid/x.git", expect=1)
+        finally:
+            os.environ["PATH"] = old
+        self.assertIn("needs git", out)

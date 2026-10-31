@@ -92,8 +92,14 @@ class WfCase(unittest.TestCase):
         git(self.repo, "commit", "-q", "-m", "mini")
         self.runs = self.tmp / "runs"
         self.tr = None
+        self._home = os.environ.get("DURWEG_HOME")
+        os.environ["DURWEG_HOME"] = str(self.tmp / "Durweg")     # never the user's real ~/Durweg
 
     def tearDown(self):
+        if self._home is None:
+            os.environ.pop("DURWEG_HOME", None)
+        else:
+            os.environ["DURWEG_HOME"] = self._home
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def wf(self, *args, expect=0):
