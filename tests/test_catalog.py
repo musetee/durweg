@@ -55,6 +55,7 @@ class Available(CatalogCase):
         self.assertIn("public:mini", out)
         self.assertIn("a tiny example", out)
         self.assertNotIn("(installed)", out)
+        self.assertIn("Run write-your-method with durweg", out)       # how to make one's own
         self.wf("library", "add", "mini")
         self.assertIn("(installed)", self.wf("library", "available"))
 

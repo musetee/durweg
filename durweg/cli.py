@@ -336,6 +336,8 @@ def _available():
         print("install one with: durweg library add <catalog>:<name>  (or just <name> if only one catalog has it)")
     else:
         print("no workflows to show")
+    # the way to make one's own comes with Durweg, so no catalog lists it (user 2026-10-31)
+    print('to make your own: tell your agent "Run write-your-method with durweg." (it comes with Durweg)')
     return 0
 
 
