@@ -50,7 +50,7 @@
 
 agent 告诉你检查结果是 `PASS`，并且“列出我的 durweg 工作流”里有 `weekly-report`，就成功了。以后只要说“用 durweg 运行 weekly-report”。
 
-**一个真实的案例：** 用这个引导写出工作流 `human-readme`（照 AIagents 项目的 README 写法），再用它重写了 Durweg 自己的 README。方法、步骤、每一步用户的原话和经验都在这个案例网页里：[写给人看的 README · Durweg 案例](https://claude.ai/artifact/LGnCog4wnBmgMAWJg1Xmi4)。想自己用这个工作流：[durweg-human-readme](https://github.com/musetee/durweg-human-readme)。
+**一个真实的案例：** 用这个引导写出工作流 `human-readme`（照 AIagents 项目的 README 写法），再用它重写了 Durweg 自己的 README。方法、步骤、每一步用户的原话和经验都在这个案例网页里（中英文可以切换）：[写给人看的 README · Durweg 案例](https://claude.ai/artifact/LGnCog4wnBmgMAWJg1Xmi4#zh)。想自己用这个工作流：[durweg-human-readme](https://github.com/musetee/durweg-human-readme)。
 
 ## 🙋 我想……
 
