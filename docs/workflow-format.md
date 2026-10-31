@@ -77,7 +77,7 @@ install by name:
 
 ```json
 {"format": 1, "workflows": {
-  "human-readme": {"title": "A README for people", "summary": "one line on what it is for",
+  "human-readme": {"title": "A README for humans", "summary": "one line on what it is for",
                    "url": "https://github.com/<owner>/durweg-human-readme.git"}}}
 ```
 

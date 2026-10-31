@@ -72,7 +72,7 @@ workflows" lists `weekly-report`. From then on: "Run weekly-report with durweg."
 
 **A real case:** with this guide the workflow `human-readme` was written, and then used to rewrite Durweg's own README. The method, the steps, the user's
 own words at each step and the lessons are on this case page (English, with a switch to Chinese):
-[A README for people · Durweg case](https://claude.ai/artifact/LGnCog4wnBmgMAWJg1Xmi4).
+[A README for humans · Durweg case](https://claude.ai/artifact/LGnCog4wnBmgMAWJg1Xmi4).
 To use the workflow yourself: [durweg-human-readme](https://github.com/musetee/durweg-human-readme).
 
 ## 🙋 I want to …
