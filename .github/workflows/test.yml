@@ -9,7 +9,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python: ["3.10", "3.12"]
+        python: ["3.9", "3.12"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -64,6 +64,13 @@ jobs:
         run: |
           $env:DURWEG_SOURCE = "$env:RUNNER_TEMP\pkg\durweg-v0.0.0-ci.zip"
           $env:DURWEG_SHA256 = ((Get-Content "$env:DURWEG_SOURCE.sha256") -split '\s+')[0]
+          # V1-C-005: a durweg.cmd of another program is left alone
+          $own = "$env:LOCALAPPDATA\Durweg\bin"; New-Item -ItemType Directory -Force $own | Out-Null
+          Set-Content "$own\durweg.cmd" "@echo other program"
+          cmd /c Durweg-Install.bat
+          if ($LASTEXITCODE -eq 0) { throw "a foreign durweg.cmd was not refused" }
+          if ((Get-Content "$own\durweg.cmd") -ne "@echo other program") { throw "foreign launcher changed" }
+          Remove-Item "$own\durweg.cmd"
           cmd /c Durweg-Install.bat
           if ($LASTEXITCODE -ne 0) { throw "installer exit $LASTEXITCODE" }
           $D = "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd"

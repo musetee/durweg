@@ -45,6 +45,16 @@ class Install(unittest.TestCase):
         return subprocess.run(["bash", str(ROOT / "install.sh")], capture_output=True, text=True, env=e,
                               stdin=subprocess.DEVNULL, timeout=120)
 
+    def fake_agent(self, name="claude", works=True):
+        b = self.home / ".local/bin"
+        b.mkdir(parents=True, exist_ok=True)
+        f = b / name
+        f.write_text("#!/bin/sh\n" + ("echo 9.9 fake\n" if works else "exit 1\n"))
+        f.chmod(0o755)
+
+    def manifest(self):
+        return json.loads((self.home / "Durweg/.install.json").read_text())
+
     def durweg(self, *args):
         return subprocess.run([str(self.home / ".local/bin/durweg"), *map(str, args)], capture_output=True,
                               text=True, env={"HOME": str(self.home), "PATH": "/usr/bin:/bin"})
@@ -104,6 +114,7 @@ class Install(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("belongs to another program", r.stdout)
         (self.home / ".local/bin/durweg").unlink()
+        self.fake_agent()
         own = self.home / ".claude/skills/write-your-method"
         own.mkdir(parents=True)
         (own / "SKILL.md").write_text("mine\n")
@@ -114,6 +125,7 @@ class Install(unittest.TestCase):
         self.assertTrue((self.home / ".claude/skills/run-workflow").is_symlink())
 
     def test_uninstall_removes_only_ours(self):
+        self.fake_agent()
         own = self.home / ".claude/skills/mine"
         own.mkdir(parents=True)
         self.install()
@@ -121,12 +133,62 @@ class Install(unittest.TestCase):
         out = self.durweg("uninstall").stdout
         self.assertIn("kept", out)
         self.assertFalse((self.home / ".local/bin/durweg").exists())
-        self.assertFalse((self.home / ".claude/skills/run-workflow").exists())
+        self.assertFalse(os.path.lexists(self.home / ".claude/skills/run-workflow"))
         self.assertFalse((self.home / ".local/share/durweg").exists())
         self.assertNotIn("# added by Durweg", (self.home / ".bashrc").read_text())
         self.assertTrue(own.is_dir())
         self.assertTrue((self.home / "Durweg/config.json").is_file())
         self.assertTrue((self.home / "Durweg/workflows/my-method").is_dir())
+
+
+    # ---- V1-C regressions ----
+    def test_paths_with_spaces_stay_whole_and_uninstall(self):        # V1-C-001
+        self.fake_agent()
+        self.assertEqual(self.install().returncode, 0)
+        want = [str(self.home / ".claude/skills/run-workflow"), str(self.home / ".claude/skills/write-your-method")]
+        self.assertEqual(self.manifest()["skills"], want)
+        self.durweg("uninstall")
+        for w in want:
+            self.assertFalse(os.path.lexists(w), w)
+
+    def test_rerun_keeps_the_path_record(self):                         # V1-C-002
+        self.install()
+        self.assertTrue(self.manifest()["path_lines"])
+        r = self.install(PATH=f"{self.home}/.local/bin:/usr/bin:/bin")  # PATH now has it
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertTrue(self.manifest()["path_lines"])
+        self.durweg("uninstall")
+        self.assertNotIn("# added by Durweg", (self.home / ".bashrc").read_text())
+
+    def test_rerun_repairs_a_damaged_same_version(self):                # V1-C-003
+        self.install()
+        bad = self.home / ".local/share/durweg/v9.0.0/durweg/__init__.py"
+        bad.write_text("raise RuntimeError('damaged')\n")
+        self.assertNotEqual(self.durweg("--version").returncode, 0)
+        r = self.install()
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(self.durweg("--version").returncode, 0)
+
+    def test_settings_folder_alone_is_no_agent(self):                   # V1-C-004
+        (self.home / ".claude").mkdir()
+        r = self.install()
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(self.manifest()["skills"], [])
+        self.assertFalse(os.path.lexists(self.home / ".claude/skills/run-workflow"))
+
+    def test_agent_that_does_not_run_after_install(self):               # V1-C-004
+        stub = self.tmp / "stubbin"
+        stub.mkdir()
+        (stub / "curl").write_text("#!/bin/sh\necho 'echo installed'\n")    # installer "succeeds", installs nothing
+        (stub / "curl").chmod(0o755)
+        r = self.install(DURWEG_AGENT="claude", PATH=f"{stub}:/usr/bin:/bin")
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("does not run", r.stdout)
+
+    def test_broken_agent_command_is_not_counted(self):
+        self.fake_agent(works=False)
+        r = self.install()
+        self.assertEqual(self.manifest()["skills"], [])
 
 
 if __name__ == "__main__":

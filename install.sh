@@ -64,13 +64,13 @@ else
     has tar || missing="$missing tar"
     if [ -n "$missing" ]; then
         has apt-get || stop "Missing:$missing. Install them with your package manager." \
-                            "缺少：$missing。请用系统的软件包管理器安装。"
-        say "Installing$missing (sudo asks for your password)..." "正在安装$missing（sudo 会要你的系统密码）……"
+                            "缺少：${missing}。请用系统的软件包管理器安装。"
+        say "Installing$missing (sudo asks for your password)..." "正在安装${missing}（sudo 会要你的系统密码）……"
         sudo apt-get update -qq && sudo apt-get install -y$missing || stop "Installing$missing failed." "安装$missing 失败。"
     fi
 fi
-python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' || \
-    stop "Durweg needs Python 3.10 or newer ($(python3 --version 2>&1))." "Durweg 需要 Python 3.10 或更新版本（现在是 $(python3 --version 2>&1)）。"
+python3 -c 'import sys; sys.exit(sys.version_info < (3, 9))' || \
+    stop "Durweg needs Python 3.9 or newer ($(python3 --version 2>&1))." "Durweg 需要 Python 3.9 或更新版本（现在是 $(python3 --version 2>&1)）。"
 pyv="$(python3 -c 'import platform; print(platform.python_version())')"
 ok "Python $pyv" "Python $pyv"
 
@@ -91,15 +91,15 @@ esac
 actual="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$pkg")"
 [ "$actual" = "$SHA" ] || stop "The download is damaged (sha256 differs); try again." "下载的文件不完整（sha256 不符），请重试。"
 new="$DATA/$VERSION"
-if [ ! -x "$new/bin/durweg" ]; then
-    mkdir -p "$work/x" && tar -xzf "$pkg" -C "$work/x" || stop "Unpacking failed." "解压失败。"
-    top="$(find "$work/x" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
-    python3 "$top/bin/durweg" --version >/dev/null 2>&1 || stop "This Durweg version does not run here." "这个版本的 Durweg 在这里运行不了。"
-    rm -rf "$new"; mv "$top" "$new"
-fi
-rm -f "$DATA/current.new"; ln -s "$new" "$DATA/current.new"
-mv -f "$DATA/current.new" "$DATA/current" 2>/dev/null || { rm -f "$DATA/current"; ln -s "$new" "$DATA/current"; }
-[ "$(readlink "$DATA/current")" = "$new" ] || { rm -rf "$DATA/current"; ln -s "$new" "$DATA/current"; }
+# always from the package just checked: a damaged copy of the same version is replaced (V1-C-003)
+mkdir -p "$work/x" && tar -xzf "$pkg" -C "$work/x" || stop "Unpacking failed." "解压失败。"
+top="$(find "$work/x" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+python3 "$top/bin/durweg" --version >/dev/null 2>&1 || stop "This Durweg version does not run here." "这个版本的 Durweg 在这里运行不了。"
+if [ -e "$new" ]; then rm -rf "$new.old"; mv "$new" "$new.old"; fi
+mv "$top" "$new" || { [ -e "$new.old" ] && mv "$new.old" "$new"; stop "Could not put $new in place." "无法放置 ${new}。"; }
+rm -rf "$new.old"
+ln -sfn "$new" "$DATA/current"      # -n: replace the link itself (GNU and BSD/macOS)
+[ "$(readlink "$DATA/current")" = "$new" ] || stop "Could not switch to $new." "无法切换到 $new。"
 ok "Durweg $VERSION in $new" "Durweg $VERSION 已放在 $new"
 
 # ---- the durweg command -----------------------------------------------------------------------
@@ -137,12 +137,15 @@ PY
 durweg library list 2>/dev/null | grep -q '^write-your-method ' || \
     durweg library add "$DATA/current/examples/write-your-method" --name write-your-method >/dev/null || \
     stop "The example could not be added to the library." "示例无法加入方法库。"
-ok "Your folder: $DHOME (settings, your workflows)" "你的文件夹：$DHOME（设置和你的工作流）"
+ok "Your folder: $DHOME (settings, your workflows)" "你的文件夹：${DHOME}（设置和你的工作流）"
 
 # ---- agents and their skills ------------------------------------------------------------------
+# an agent counts when its command runs; a leftover settings folder alone does not (V1-C-004)
+export PATH="$HOME/.local/bin:$HOME/.codex/bin:$PATH"
+runs_ok() { has "$1" && "$1" --version >/dev/null 2>&1; }
 agents=''
-{ has claude || [ -d "$HOME/.claude" ]; } && agents="$agents claude"
-{ has codex || [ -d "${CODEX_HOME:-$HOME/.codex}" ]; } && agents="$agents codex"
+runs_ok claude && agents="$agents claude"
+runs_ok codex && agents="$agents codex"
 if [ -z "$agents" ]; then
     choice="${DURWEG_AGENT:-}"
     if [ -z "$choice" ]; then
@@ -154,26 +157,39 @@ if [ -z "$agents" ]; then
         claude) curl -fsSL https://claude.ai/install.sh | bash || stop "Installing Claude Code failed." "安装 Claude Code 失败。" ;;
         codex)  curl -fsSL https://chatgpt.com/codex/install.sh | sh || stop "Installing Codex failed." "安装 Codex 失败。" ;;
     esac
-    [ "$choice" = skip ] || agents=" $choice"
+    hash -r 2>/dev/null || true
+    if [ "$choice" != skip ]; then
+        runs_ok "$choice" || stop "$choice was installed but does not run; open a new terminal and try again." \
+                                  "$choice 装好了但运行不了；请打开一个新终端再试。"
+        agents=" $choice"
+    fi
 fi
-skills=''
+skills=()
 for a in $agents; do
     case "$a" in claude) dir="$HOME/.claude/skills" ;; codex) dir="${CODEX_HOME:-$HOME/.codex}/skills" ;; esac
     mkdir -p "$dir"
     for s in run-workflow write-your-method; do
         src="$DATA/current/skills/$s"; [ -d "$src" ] || src="$DATA/current/examples/$s/skills/$s"
-        link_owned "$src" "$dir/$s" && skills="$skills $dir/$s"
+        link_owned "$src" "$dir/$s" && skills+=("$dir/$s")
     done
 done
 [ -n "$agents" ] && ok "Skills for:$agents" "已为这些 agent 装好 skill：$agents"
 
 # ---- install manifest (what belongs to Durweg; used by updates and durweg uninstall) -----------
-python3 - "$DHOME/.install.json" "$VERSION" "$actual" "$DATA" "$BIN/durweg" "$path_line" $skills <<'PY'
+python3 - "$DHOME/.install.json" "$VERSION" "$actual" "$DATA" "$BIN/durweg" "$path_line" "${skills[@]}" <<'PY'
 import json, sys, os
 p, version, sha, data, launcher, path_line, *skills = sys.argv[1:]
+try:
+    old = json.load(open(p, encoding="utf-8"))
+except (OSError, ValueError):
+    old = {}
+# keep what an earlier run recorded and is still ours (V1-C-002)
+lines = [x for x in old.get("path_lines", []) + ([path_line] if path_line else [])
+         if os.path.isfile(x) and "# added by Durweg" in open(x, encoding="utf-8", errors="replace").read()]
+skills = [s for s in dict.fromkeys(old.get("skills", []) + skills)
+          if os.path.islink(s) and os.readlink(s).startswith(data)]
 json.dump({"format": 1, "version": version, "sha256": sha, "platform_dir": os.path.join(data, "current"),
-           "data_dir": data, "launchers": [launcher], "skills": skills,
-           "path_lines": [path_line] if path_line else []},
+           "data_dir": data, "launchers": [launcher], "skills": skills, "path_lines": list(dict.fromkeys(lines))},
           open(p, "w", encoding="utf-8"), indent=1)
 PY
 
@@ -185,7 +201,7 @@ echo
 say "Durweg is installed." "Durweg 装好了。"
 if [ -n "$agent" ] && [ -z "${DURWEG_NO_START:-}" ] && [ -n "$TTY" ] && has "$agent"; then
     say "Starting $agent with the first example (it may ask you to log in first)..." \
-        "正在启动 $agent，带你做第一个示例（第一次可能会先让你登录）……"
+        "正在启动 ${agent}，带你做第一个示例（第一次可能会先让你登录）……"
     cd "$HOME" && exec "$agent" "$first" < "$TTY"
 fi
 say "Next: open a new terminal, start your agent, and tell it:" "下一步：打开一个新终端，启动你的 agent，然后对它说："

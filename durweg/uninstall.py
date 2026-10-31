@@ -20,7 +20,7 @@ def _ours(path, data_dir):
     if p.is_dir():
         return (p / ".durweg-owned").is_file()
     if p.is_file() and p.suffix.lower() == ".cmd":
-        return "durweg" in p.read_text(encoding="utf-8", errors="replace").lower()
+        return "rem durweg launcher (written by Durweg-Install.bat)" in p.read_text(encoding="utf-8", errors="replace")
     return False
 
 
@@ -32,7 +32,7 @@ def uninstall(dry_run=False):
     data_dir = Path(m["data_dir"])
     done = []
     for p in m.get("launchers", []) + m.get("skills", []):
-        if (Path(p).exists() or Path(p).is_symlink()) and _ours(p, data_dir):
+        if os.path.lexists(p) and _ours(p, data_dir):
             done.append(f"removed {p}")
             if not dry_run:
                 if Path(p).is_dir() and not Path(p).is_symlink():

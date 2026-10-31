@@ -4,6 +4,8 @@ rem The PowerShell part below the marker does the work; a durweg-rc.json next to
 rem release candidate instead of the published version (testing before a release).
 setlocal
 set "DURWEG_SELF=%~f0"
+rem Windows PowerShell builds its own module path; one inherited from PowerShell 7 breaks it
+set "PSModulePath="
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$s=[IO.File]::ReadAllText($env:DURWEG_SELF,[Text.Encoding]::UTF8); $m='#=== '+'ps1 ==='; Invoke-Expression $s.Substring($s.IndexOf($m))"
 set "RC=%ERRORLEVEL%"
 echo.
@@ -91,7 +93,7 @@ Say "Installing Durweg $Version on Windows" "正在把 Durweg $Version 装到 Wi
 function Find-Python {
     foreach ($c in @(@('py', '-3'), @('python'))) {
         if (Get-Command $c[0] -ErrorAction SilentlyContinue) {
-            $args2 = @($c | Select-Object -Skip 1) + @('-c', 'import sys; sys.exit(sys.version_info < (3, 10))')
+            $args2 = @($c | Select-Object -Skip 1) + @('-c', 'import sys; sys.exit(sys.version_info < (3, 9))')
             & $c[0] @args2 2>$null | Out-Null
             if ($LASTEXITCODE -eq 0) { return , $c }
         }
@@ -127,29 +129,39 @@ try {
     } else { Copy-Item -LiteralPath $Src -Destination $Pkg -Force }
 } catch { Stop-Install "Download failed: $Src" "下载失败：$Src" }
 if (-not $Sha) { Stop-Install 'No sha256 for the download, so it cannot be checked.' '下载没有附带 sha256，无法校验。' }
-if ((Get-FileHash -Algorithm SHA256 -LiteralPath $Pkg).Hash.ToLower() -ne $Sha.ToLower()) {
+function Get-Sha256($path) {   # .NET only: no PowerShell module needed
+    $s = [IO.File]::OpenRead($path)
+    try { return (([Security.Cryptography.SHA256]::Create().ComputeHash($s) | ForEach-Object { $_.ToString('x2') }) -join '') }
+    finally { $s.Dispose() }
+}
+if ((Get-Sha256 $Pkg) -ne $Sha.ToLower()) {
     Stop-Install 'The download is damaged (sha256 differs); try again.' '下载的文件不完整（sha256 不符），请重试。'
 }
 $New = Join-Path $Local $Version
-if (-not (Test-Path (Join-Path $New 'bin\durweg'))) {
-    $Tmp = Join-Path $Local ".unpack-$Version"
-    if (Test-Path $Tmp) { Remove-Item -Recurse -Force $Tmp }
-    Expand-Archive -LiteralPath $Pkg -DestinationPath $Tmp
-    $Top = Join-Path $Tmp "durweg-$Version"
-    & $PyExe @PyArgs (Join-Path $Top 'bin\durweg') --version | Out-Null
-    if ($LASTEXITCODE -ne 0) { Stop-Install 'This Durweg version does not run here.' '这个版本的 Durweg 在这里运行不了。' }
-    if (Test-Path $New) { Remove-Item -Recurse -Force $New }
-    Move-Item $Top $New
-    Remove-Item -Recurse -Force $Tmp
-}
+# always from the package just checked: a damaged copy of the same version is replaced (V1-C-003)
+$Tmp = Join-Path $Local ".unpack-$Version"
+if (Test-Path $Tmp) { Remove-Item -Recurse -Force $Tmp }
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[IO.Compression.ZipFile]::ExtractToDirectory($Pkg, $Tmp)
+$Top = Join-Path $Tmp "durweg-$Version"
+& $PyExe @PyArgs (Join-Path $Top 'bin\durweg') --version | Out-Null
+if ($LASTEXITCODE -ne 0) { Stop-Install 'This Durweg version does not run here.' '这个版本的 Durweg 在这里运行不了。' }
+if (Test-Path $New) { if (Test-Path "$New.old") { Remove-Item -Recurse -Force "$New.old" }; Move-Item $New "$New.old" }
+Move-Item $Top $New
+if (Test-Path "$New.old") { Remove-Item -Recurse -Force "$New.old" }
+Remove-Item -Recurse -Force $Tmp
 Remove-Item -Force $Pkg -ErrorAction SilentlyContinue
 
 # ---- the durweg command ----------------------------------------------------------------------
 $BinDir = Join-Path $Local 'bin'
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 $Launcher = Join-Path $BinDir 'durweg.cmd'
+$Mark = 'rem durweg launcher (written by Durweg-Install.bat)'
+if ((Test-Path $Launcher) -and -not ([IO.File]::ReadAllText($Launcher) -like "*$Mark*")) {
+    Stop-Install "$Launcher belongs to another program; it is left as it is." "$Launcher 属于别的程序，保持原样不动。"   # V1-C-005
+}
 $pyLine = ($PyExe + ' ' + ($PyArgs -join ' ')).Trim()
-[IO.File]::WriteAllText($Launcher, "@echo off`r`nrem durweg launcher (written by Durweg-Install.bat)`r`n$pyLine `"$New\bin\durweg`" %*`r`n", $Utf8)
+[IO.File]::WriteAllText($Launcher, "@echo off`r`n$Mark`r`n$pyLine `"$New\bin\durweg`" %*`r`n", $Utf8)
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $pathEntries = @()
 if (-not (($userPath -split ';') -contains $BinDir)) {
@@ -178,9 +190,15 @@ if (-not $ex) {
 Ok "Your folder: $DHome" "你的文件夹：$DHome"
 
 # ---- agents and their skills (copies, marked as Durweg's) -------------------------------------
+# an agent counts when its command runs; a leftover settings folder alone does not (V1-C-004)
+function Test-Agent($name) {
+    if (-not (Get-Command $name -ErrorAction SilentlyContinue)) { return $false }
+    try { & $name --version 2>$null | Out-Null; return ($LASTEXITCODE -eq 0) } catch { return $false }
+}
+$env:Path = "$env:Path;$(Join-Path $HOME '.local\bin')"
 $agents = @()
-if ((Get-Command claude -ErrorAction SilentlyContinue) -or (Test-Path (Join-Path $HOME '.claude'))) { $agents += 'claude' }
-if ((Get-Command codex -ErrorAction SilentlyContinue) -or (Test-Path (Join-Path $HOME '.codex'))) { $agents += 'codex' }
+if (Test-Agent 'claude') { $agents += 'claude' }
+if (Test-Agent 'codex') { $agents += 'codex' }
 if ($agents.Count -eq 0) {
     $choice = $env:DURWEG_AGENT
     if (-not $choice) {
@@ -197,9 +215,14 @@ if ($agents.Count -eq 0) {
                 Refresh-Path; $env:Path = "$BinDir;$env:Path"
             }
             & npm install -g @openai/codex | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "npm exit $LASTEXITCODE" }
         }
     } catch { Stop-Install "Installing $choice failed." "安装 $choice 失败。" }
-    if ($choice -ne 'skip') { $agents += $choice }
+    if ($choice -ne 'skip') {
+        Refresh-Path; $env:Path = "$BinDir;$env:Path;$(Join-Path $HOME '.local\bin')"
+        if (-not (Test-Agent $choice)) { Stop-Install "$choice was installed but does not run; open a new window and try again." "$choice 装好了但运行不了；请打开一个新窗口再试。" }
+        $agents += $choice
+    }
 }
 $skills = @()
 foreach ($a in $agents) {
