@@ -45,6 +45,7 @@ at the end of this page.
 | What | Where | What is in it |
 | :--- | :--- | :--- |
 | **Your settings and workflows** | `~/Durweg/` | • `config.json`: the settings, with the language<br>• `workflows/`: your workflows<br>• `library.json`: the list of them |
+| **Your cases** | `~/Durweg/cases/` | One web page per case (`<workflow>_<run>.html`); double-click to open; move or send it as you like |
 | **The record of each run** | under `runs/` in the project folder you started it from, one folder per run | • `steps/`: what each step delivered<br>• `run.md`: a readable summary (`durweg render <run>`)<br>• `.wf/`: the record and the locked copy of the workflow (do not edit it) |
 
 **Finding them in Windows:**
@@ -59,7 +60,8 @@ On a Mac and on Linux they are in your home folder.
 ## 🚀 Example: write down your method
 
 This example shows how Durweg turns one of your fixed ways of working into a workflow: taking the
-weekly status report, you make your own workflow `weekly-report` and run it once. The installer
+weekly status report, you make your own workflow `weekly-report`, run it once, and finally write it up as a case page
+to keep or share. The installer
 walks you through it the first time; to make another one later, follow these steps.
 
 1. **Open a terminal** (step 1 of "Every day").
@@ -68,6 +70,10 @@ walks you through it the first time; to make another one later, follow these ste
 3. **Start your agent** (step 3 of "Every day").
 4. **Tell it:** "Run write-your-method with durweg." Then answer its questions on how you do the
    weekly report (collect, write, approve and send), and confirm the steps it shows you.
+5. **Write it up as a case (optional):** at the end it asks whether to write a case. If you want
+   one, tell it what you would tell others; it turns your method, the steps, your own words at each
+   confirmation and the first run's result into one web page in `~/Durweg/cases/`. Double-click it
+   to open it in your browser, or send it to someone.
 
 Done looks like this: the agent tells you the check result is `PASS`, and "Show me my durweg
 workflows" lists `weekly-report`. From then on: "Run weekly-report with durweg."

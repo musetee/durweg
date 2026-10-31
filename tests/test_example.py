@@ -95,10 +95,63 @@ class Example(WfCase):
         self.wf("propose", run, "try")
         self.wf("confirm", run, "try", "--quote", "it worked")
         self.wf("done", run, "try")
+        # case: one page from the run's own record, a copy in ~/Durweg/cases
+        self.wf("begin", run, "case")
+        self.put("steps/6-lessons.md", "## Lessons\nWrite the risks <first> & keep it short.\n")
+        out = self.tool("make_case.py", run)
+        page = (run / "case/weekly-report.html").read_text(encoding="utf-8")
+        for words in ("looks right", "it worked", "send it", "Collect the work",
+                      "Write the risks &lt;first&gt; &amp; keep it short."):
+            self.assertIn(words, page)
+        self.assertNotIn(str(self.tmp), page)               # no paths of this computer
+        copy = Path(os.environ["DURWEG_HOME"]) / "cases" / f"weekly-report_{run.name}.html"
+        self.assertIn(str(copy), out)
+        self.assertEqual(copy.read_text(encoding="utf-8"), page)
+        self.wf("propose", run, "case")
+        self.wf("confirm", run, "case", "--quote", "keep it")
+        self.wf("done", run, "case")
+        self.assertIn("PASS", self.wf("check", run))
+        copy.unlink()                                       # the user moved the copy away
+        self.wf("reopen", new, "approve", "--reason", "later change in the try run")
         self.assertIn("PASS", self.wf("check", run))
         # later changes in the library do not change the example's own history
         (lib_path / "workflow.json").write_text("{}", encoding="utf-8")
         self.assertIn("PASS", self.wf("check", run))
+
+    def through_try(self):
+        run = self.through_build()
+        self.build_done(run)
+        self.wf("begin", run, "register")
+        self.tool("register.py", run)
+        self.wf("done", run, "register")
+        self.wf("begin", run, "try")
+        self.put("steps/5-try.json", {"run": str(run), "check": "PASS"})
+        self.wf("propose", run, "try")
+        self.wf("confirm", run, "try", "--quote", "fine")
+        self.wf("done", run, "try")
+        self.wf("begin", run, "case")
+        return run
+
+    def test_no_case_is_fine(self):
+        run = self.through_try()
+        self.put("steps/6-case.json", {"made": False})
+        self.wf("propose", run, "case")
+        self.wf("confirm", run, "case", "--quote", "no thanks")
+        self.wf("done", run, "case")
+        self.assertIn("PASS", self.wf("check", run))
+
+    def test_case_edited_by_hand_fails(self):
+        run = self.through_try()
+        self.put("steps/6-lessons.md", "## Lessons\nIt helped.\n")
+        self.tool("make_case.py", run)
+        p = run / "case/weekly-report.html"
+        p.write_text(p.read_text(encoding="utf-8").replace("fine", "brilliant"), encoding="utf-8")
+        rec = json.loads((run / "steps/6-case.json").read_text(encoding="utf-8"))
+        rec["sha256"] = __import__("hashlib").sha256(p.read_bytes()).hexdigest()
+        self.put("steps/6-case.json", rec)
+        self.wf("propose", run, "case")
+        self.wf("confirm", run, "case", "--quote", "ok")
+        self.assertIn("edited by hand", self.wf("done", run, "case", expect=1))
 
     def edit_generated(self, run, fn):
         p = run / "generated/weekly-report/workflow.json"

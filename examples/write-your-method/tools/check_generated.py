@@ -6,6 +6,9 @@
                                     confirmed design: same steps in the same order, a user gate
                                     exactly where the design asks the user, every instruction found
   check_generated.py register RUN   the copy registered in the library is the frozen generated one
+  check_generated.py case RUN       the case page is exactly what make_case.py builds from this run's
+                                    record (no hand edits); the copy in ~/Durweg/cases is not checked,
+                                    the user may move or share it
 
 Uses the platform's own checks through $DURWEG_PLATFORM (set by durweg for command gates).
 Exit 1 with one line per problem.
@@ -102,11 +105,35 @@ def register(run):
     return errs
 
 
+def case(run):
+    rec = load(run / "steps/6-case.json")
+    if rec.get("made") is False:
+        return []                                   # the user chose not to write a case
+    if rec.get("made") is not True:
+        return ["steps/6-case.json: 'made' must be true or false"]
+    page = run / str(rec.get("html", ""))
+    if not page.is_file():
+        return [f"{rec.get('html')} is missing: run tools/make_case.py"]
+    data = page.read_bytes()
+    errs = []
+    if hashlib.sha256(data).hexdigest() != rec.get("sha256"):
+        errs.append("the case page changed after make_case.py wrote it")
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import make_case
+    try:
+        again = make_case.page(run, load(run / "case/inputs.json")).encode("utf-8")
+    except (KeyError, TypeError, ValueError, OSError) as x:
+        return errs + [f"cannot rebuild the case page from this run's record: {x}"]
+    if data != again:
+        errs.append("the case page is not what make_case.py builds from this run's record (edited by hand?)")
+    return errs                 # the copy in ~/Durweg/cases is the user's to move or share
+
+
 def main(argv):
-    if len(argv) != 2 or argv[0] not in ("design", "build", "register"):
+    if len(argv) != 2 or argv[0] not in ("design", "build", "register", "case"):
         sys.exit(__doc__)
     run = Path(argv[1]).resolve()
-    errs = {"design": design, "build": build, "register": register}[argv[0]](run)
+    errs = {"design": design, "build": build, "register": register, "case": case}[argv[0]](run)
     for e in errs:
         print(e)
     return 1 if errs else 0

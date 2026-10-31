@@ -1,6 +1,6 @@
 ---
 name: write-your-method
-description: Durweg's first-run example - help the user write down one way they do a kind of work, turn it into steps, build a Durweg workflow from it, put it in their library and run it once. Use when the user starts Durweg for the first time or asks to turn their own method into a workflow.
+description: Durweg's first-run example - help the user write down one way they do a kind of work, turn it into steps, build a Durweg workflow from it, put it in their library, run it once, and write it up as a case page to keep or share. Use when the user starts Durweg for the first time or asks to turn their own method into a workflow.
 ---
 
 # write-your-method: from "how I do it" to a workflow you can run
@@ -59,6 +59,21 @@ its skill says, and finish with `durweg check <that run>`.
 
 **File:** `steps/5-try.json`: `{"run": "<the new run's folder>", "check": "PASS"}` (only after
 check printed PASS). `durweg propose`, show the user both results, and confirm with their words.
+
+## 6. Case
+Ask the user whether they are happy with their new workflow and want this run written up as a
+case: one web page they can keep, or send to others to share what they learned. It holds their
+method, the steps, their own words at each confirmation and the first run's result, all taken
+from this run's record.
+
+- **No:** write `steps/6-case.json` as `{"made": false}`, `durweg propose`, and confirm with their
+  words.
+- **Yes:** ask what they would tell someone who wants to do the same (what worked, what to watch
+  for) and write it, in their words, to `steps/6-lessons.md` under `## Lessons`. Then
+  `python3 RUN/.wf/workflow/tools/make_case.py RUN` builds `case/<name>.html`, keeps a copy in
+  `~/Durweg/cases/` and writes `steps/6-case.json`. Do not edit the page by hand; to change the
+  lessons, edit `steps/6-lessons.md` and run make_case.py again. Tell the user where the copy is
+  (they open it by double-clicking), `durweg propose`, and confirm with their words.
 
 At the end: `durweg check RUN` for this run too, and tell the user how to use their workflow from
 now on: "Run <name> with durweg."

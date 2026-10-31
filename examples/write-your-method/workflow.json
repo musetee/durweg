@@ -2,7 +2,7 @@
   "id": "write-your-method",
   "title": "Write down your method and turn it into a workflow you can run",
   "skill": "skills/write-your-method",
-  "snapshot": ["tools/generate.py", "tools/check_generated.py", "tools/register.py"],
+  "snapshot": ["tools/generate.py", "tools/check_generated.py", "tools/register.py", "tools/make_case.py"],
   "steps": [
     {
       "id": "describe",
@@ -68,6 +68,18 @@
         {"type": "json", "file": "steps/5-try.json", "schema": {
           "type": "object", "required": ["run", "check"],
           "properties": {"run": {"type": "string"}, "check": {"type": "string", "enum": ["PASS"]}}}},
+        {"type": "user"}
+      ]
+    },
+    {
+      "id": "case",
+      "title": "Write it up as a case",
+      "instructions": "skills/write-your-method/SKILL.md#6-case",
+      "artifacts": ["steps/6-case.json", "steps/6-lessons.md", "case/**"],
+      "gates": [
+        {"type": "json", "file": "steps/6-case.json", "schema": {
+          "type": "object", "required": ["made"], "properties": {"made": {"type": "boolean"}}}},
+        {"type": "command", "argv": ["python3", "{wf}/tools/check_generated.py", "case", "{run}"]},
         {"type": "user"}
       ]
     }
