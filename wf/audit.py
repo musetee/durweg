@@ -185,7 +185,45 @@ def load_transcripts(files):
 
 # -- calls -> ordered operations -------------------------------------------------------
 def _segments(cmd):
-    return [s for s in re.split(r"&&|\|\||;|\n|\|", cmd) if s.strip()]
+    """Split on ; && || | and newlines outside quotes (WP-C-001, round 3).
+
+    Returns None when the quoting cannot be followed (unbalanced quotes); the caller then
+    treats the command as unparsed, which is a gap, never evidence.
+    """
+    segs, cur, i, quote = [], [], 0, None
+    while i < len(cmd):
+        c = cmd[i]
+        if quote == "'":
+            if c == "'":
+                quote = None
+            cur.append(c)
+        elif quote == '"':
+            if c == "\\" and i + 1 < len(cmd):
+                cur.append(cmd[i:i + 2])
+                i += 2
+                continue
+            if c == '"':
+                quote = None
+            cur.append(c)
+        elif c == "\\" and i + 1 < len(cmd):
+            cur.append(cmd[i:i + 2])
+            i += 2
+            continue
+        elif c in "'\"":
+            quote = c
+            cur.append(c)
+        elif c in ";\n" or (c in "&|" and cmd[i:i + 2] in ("&&", "||")) or c == "|":
+            segs.append("".join(cur))
+            cur = []
+            i += 2 if cmd[i:i + 2] in ("&&", "||") else 1
+            continue
+        else:
+            cur.append(c)
+        i += 1
+    if quote:
+        return None
+    segs.append("".join(cur))
+    return [s for s in segs if s.strip()]
 
 
 def _tokens(seg):
@@ -290,7 +328,11 @@ def call_ops(call):
         if UNCERTAIN.search(cmd):
             uncertain = True
         here = cwd
-        for seg in _segments(strip_heredocs(cmd)):
+        segs = _segments(strip_heredocs(cmd))
+        if segs is None:
+            ops.append(("unparsed", {"cmd": cmd}))
+            continue
+        for seg in segs:
             toks = _tokens(seg)
             if toks and toks[0] == "cd" and len(toks) > 1:
                 here = _resolve(toks[1], here)
@@ -499,6 +541,9 @@ class Audit:
                     self._check_write(os.path.relpath(ap, self.rd), pos, call, certain=True)
             elif kind == "risky":
                 self._risky(pos, data, call, lifetime)
+            elif kind == "unparsed" and (self.mentions_run(data["cmd"]) or re.search(r"\bwf\b", data["cmd"])):
+                self.gaps.append(f"command whose quoting audit cannot follow; check it by hand: "
+                                 f"{data['cmd'].strip()[:200]}")
 
     def _risky(self, pos, data, call, lifetime):
         cwd_in = bool(data["cwd"]) and self.in_run(".", data["cwd"])[0]

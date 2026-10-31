@@ -637,3 +637,58 @@ class Recheck(WfCase):
         self.done_single()
         self.real(f"python3 - <<'EOF'\nprint(open('{self.run}/steps/1-topic.json').read())\nEOF")
         self.assertEqual(self.audit()[0], 2)
+
+
+class Quoting(WfCase):
+    """WP-C-001 round 3: separators inside quotes or escaped do not start a command."""
+
+    def cached(self, render):
+        w = json.loads((self.repo / "workflow.json").read_text())
+        w["steps"] = w["steps"][:1]
+        w["steps"][0]["gates"] = w["steps"][0]["gates"][:1]
+        (self.repo / "workflow.json").write_text(json.dumps(w))
+        git(self.repo, "commit", "-qam", "single step")
+        self.start()
+        outs = {"begin": self.wf("begin", self.run, "topic")}
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        outs["done"] = self.wf("done", self.run, "topic")
+        fake = Transcript(self.tmp / "q.jsonl", self.tmp)
+        for sub, out in outs.items():
+            fake.bash(render(sub), out)
+        return self.audit(fake.path)
+
+    def test_single_quoted_semicolon(self):
+        rc, out = self.cached(lambda s: f"echo 'example; wf {s} {self.run} topic;' && cat cache")
+        self.assertEqual(rc, 1, out)
+
+    def test_double_quoted_and_escaped(self):
+        rc, out = self.cached(lambda s: f'echo "x && wf {s} {self.run} topic" \; wf\\ {s} && cat cache')
+        self.assertEqual(rc, 1, out)
+
+    def test_unbalanced_quote_is_a_gap_not_evidence(self):
+        rc, out = self.cached(lambda s: f"echo 'oops; wf {s} {self.run} topic")
+        self.assertEqual(rc, 1, out)          # no evidence for the events
+        self.assertIn("quoting audit cannot follow", out)
+
+    def test_semicolon_inside_quote_argument_of_a_real_call(self):
+        self.start()
+        self.wf("begin", self.run, "topic")
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        self.wf("propose", self.run, "topic")
+        self.tr.user("dogs; definitely")
+        self.wf("confirm", self.run, "topic", "--quote", "dogs; definitely", "--set", "chosen=dogs")
+        self.wf("done", self.run, "topic")
+        self.assertNotIn("violation", self.audit()[1])
+
+    def test_real_calls_separated_by_semicolons(self):
+        self.start()
+        q = shlex.quote(str(self.run))
+        env = dict(os.environ, PYTHONPATH=str(ROOT))
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        self.tr.lines = self.tr.lines[:-2]           # the write comes after begin, below
+        cmd = f"{WF_BIN} begin {q} topic; printf %s '{{\"options\": [\"a\", \"b\"]}}' > {q}/steps/1-topic.json; {WF_BIN} propose {q} topic"
+        r = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, env=env)
+        self.tr.bash(cmd, r.stdout + r.stderr)
+        rc, out = self.audit()
+        self.assertNotIn("violation", out)
+        self.assertIn("event=3 propose", r.stdout)
