@@ -25,28 +25,33 @@ _SSH_OPTS = "-o BatchMode=yes -o ConnectTimeout=20"
 _FIRST = re.compile(r"""^\s*("[^"]*"|'[^']*'|\S+)(.*)$""", re.S)
 
 
-def _user_ssh():
-    """The ssh command git would use: GIT_SSH_COMMAND, else core.sshCommand, else GIT_SSH."""
+def _user_ssh(cwd=None):
+    """The ssh command git would use in `cwd`: GIT_SSH_COMMAND, else core.sshCommand as git sees it
+    there (repository, includeIf, global, system), else GIT_SSH."""
     cmd = os.environ.get("GIT_SSH_COMMAND", "").strip()
     if cmd:
         return cmd
     if shutil.which("git"):
-        try:
-            r = subprocess.run(["git", "config", "--get", "core.sshCommand"], capture_output=True, text=True,
-                               timeout=10, stdin=subprocess.DEVNULL)
+        # in a repository: what git sees there; without one (git clone does not read the
+        # repository it is started from): only the global and system settings
+        scopes = [[]] if cwd else [["--global"], ["--system"]]
+        for scope in scopes:
+            try:
+                r = subprocess.run(["git", "config", *scope, "--get", "core.sshCommand"], cwd=cwd,
+                                   capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL)
+            except (OSError, subprocess.TimeoutExpired):
+                continue
             if r.returncode == 0 and r.stdout.strip():
                 return r.stdout.strip()
-        except (OSError, subprocess.TimeoutExpired):
-            pass
     prog = os.environ.get("GIT_SSH", "").strip()
     return f'"{prog}"' if prog else ""
 
 
-def ssh_command():
+def ssh_command(cwd=None):
     """(command for GIT_SSH_COMMAND, None) or (None, reason). The user's own ssh command keeps its
     key and options, with BatchMode put first (ssh uses the first value it sees for an option).
     A wrapper that is not ssh cannot be made silent, so it is refused for ssh addresses."""
-    cmd = _user_ssh()
+    cmd = _user_ssh(cwd)
     if not cmd:
         return f"ssh {_SSH_OPTS}", None
     m = _FIRST.match(cmd)
@@ -63,11 +68,11 @@ def is_ssh(url):
     return u.startswith(("ssh://", "git+ssh://")) or bool(re.match(r"^[\w.-]+@[\w.-]+:", u))
 
 
-def env():
+def env(cwd=None):
     e = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never", GIT_ASKPASS="",
              SSH_ASKPASS="", LC_ALL="C")
     e.pop("SSH_ASKPASS_REQUIRE", None)
-    cmd, _ = ssh_command()
+    cmd, _ = ssh_command(cwd)
     if cmd:
         e["GIT_SSH_COMMAND"] = cmd
     return e
@@ -105,11 +110,11 @@ def run(args, cwd=None, url=None, timeout=TIMEOUT):
     """Run git; returns stdout. Raises GitFailed with a readable reason."""
     need_git("this")
     if is_ssh(url):
-        cmd, reason = ssh_command()
+        cmd, reason = ssh_command(cwd)
         if cmd is None:
             raise GitFailed(reason, "other")
     try:
-        r = subprocess.run(["git", *args], cwd=cwd, env=env(), capture_output=True, text=True,
+        r = subprocess.run(["git", *args], cwd=cwd, env=env(cwd), capture_output=True, text=True,
                            timeout=timeout, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired:
         raise GitFailed(f"no answer within {timeout} s (offline, or waiting for a login?)", "timeout")

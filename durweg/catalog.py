@@ -133,15 +133,24 @@ def refresh(cid, url):
                 try:
                     gitops.clone(url, tmp)
                     _parse(cid, tmp)
+                    old = None
                     if dest.exists():
                         old = dest.with_name(f".{cid}.old-{uuid.uuid4().hex[:12]}")
                         os.replace(dest, old)
-                        rmtree(old)
-                    os.replace(tmp, dest)
+                    try:
+                        os.replace(tmp, dest)
+                    except OSError:
+                        if old is not None:
+                            os.replace(old, dest)          # the last good copy goes back
+                        raise
+                    if old is not None:
+                        rmtree(old)                        # only once the new one is in place
                 finally:
                     rmtree(tmp)
     except WfError as e:
         return gitops.redact(str(e))
+    except OSError as e:
+        return gitops.redact(f"the copy in {dest.parent} could not be replaced ({e})")
     with _lock():
         data = _load()
         entry = data["catalogs"].setdefault(cid, {})

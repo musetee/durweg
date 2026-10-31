@@ -314,6 +314,73 @@ class ReviewRegressions(CatalogCase):
                     os.environ[k] = v
 
 
+class ReviewRegressions2(CatalogCase):
+    """Codex V11-C-005, 006."""
+
+    def test_c005_failed_switch_to_a_new_address_keeps_the_old_cache(self):
+        from durweg import catalog
+        self.wf("library", "available")
+        before = (catalog._load()["catalogs"]["public"])["fetched"]
+        os.environ["DURWEG_PUBLIC_CATALOG"] = self.catalog("moved", {"other": {"url": self.mini_url}})
+        real = os.replace
+        dest = catalog.cache_dir("public")
+
+        def replace(src, dst):
+            if Path(dst) == dest and ".new-" in Path(src).name:
+                raise PermissionError("in use")
+            return real(src, dst)
+        os.replace = replace
+        try:
+            out = self.wf("library", "available")
+        finally:
+            os.replace = real
+        self.assertIn("public:mini", out)                        # the old copy, not the new one
+        self.assertIn("could not be replaced", out)
+        self.assertNotIn("Traceback", out)
+        self.assertTrue((dest / "catalog.json").is_file())
+        self.assertEqual(catalog._load()["catalogs"]["public"]["fetched"], before)
+        self.assertEqual([p.name for p in dest.parent.iterdir() if p.name.startswith(".public.")], [])
+        self.assertIn("public:other", self.wf("library", "available"))   # next time it works
+
+    def test_c006_repository_ssh_command_is_read_in_that_repository(self):
+        from durweg import gitops
+        git(self.repo, "config", "core.sshCommand", "ssh -i /tmp/repo-only-key")
+        saved = os.environ.pop("GIT_SSH_COMMAND", None)
+        try:
+            self.assertEqual(Path.cwd(), self.here)              # called from another folder
+            cmd = gitops.env(self.repo)["GIT_SSH_COMMAND"]
+            self.assertIn("-i /tmp/repo-only-key", cmd)
+            self.assertTrue(cmd.startswith("ssh -o BatchMode=yes"), cmd)
+            self.assertNotIn("repo-only-key", gitops.env()["GIT_SSH_COMMAND"])   # clone: not this repo's
+            os.chdir(self.repo)                                  # started inside that repository
+            self.assertNotIn("repo-only-key", gitops.env()["GIT_SSH_COMMAND"])
+        finally:
+            os.chdir(self.here)
+            if saved is not None:
+                os.environ["GIT_SSH_COMMAND"] = saved
+
+    @unittest.skipIf(os.name == "nt", "a fake ssh without an extension does not run on Windows")
+    def test_c006_fetch_in_a_repository_uses_its_key(self):
+        from durweg import gitops
+        fake = self.tmp / "bin" / "ssh"
+        fake.parent.mkdir()
+        log = self.tmp / "ssh-args.txt"
+        fake.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$@\" > '{log}'\nexit 255\n")
+        fake.chmod(0o755)
+        git(self.repo, "config", "core.sshCommand", f"{fake} -i /tmp/repo-only-key")
+        git(self.repo, "remote", "add", "origin", "ssh://git@example.invalid/a/b.git")
+        saved = os.environ.pop("GIT_SSH_COMMAND", None)
+        try:
+            with self.assertRaises(gitops.GitFailed):
+                gitops.run(["fetch", "-q", "origin"], cwd=self.repo, url="ssh://git@example.invalid/a/b.git")
+        finally:
+            if saved is not None:
+                os.environ["GIT_SSH_COMMAND"] = saved
+        args = log.read_text().split("\n")
+        self.assertEqual(args[:2], ["-o", "BatchMode=yes"])
+        self.assertIn("/tmp/repo-only-key", args)
+
+
 class GitReasons(unittest.TestCase):
     def test_reasons_and_redaction(self):
         from durweg import gitops
