@@ -2,80 +2,108 @@
 
 # Durweg
 
-Durweg makes AI agents (Claude Code, Codex) work by your own method, the same way every time, so
-their output is stable. A skill tells an agent how to work but not whether it did: it can skip a
-step, decide for you, or leave no trace. Durweg runs your method step by step, stops the agent at
-each step's checks, asks you where your method says so, and keeps a record you can check.
+**Durweg turns the way you always do a piece of work into a workflow that AI agents (Claude Code, Codex) follow step by step every time, without skipping steps or deciding for you, so their output is stable.**
 
-## Install
+Given only instructions (a skill), an agent can skip a step or decide for you, and afterwards you
+cannot tell. With Durweg each step must pass its checks before the next one starts, the agent stops
+and asks you where your method says you decide, and every run leaves a record you can check.
 
-You need no GitHub account. The installer asks for your language first, then sets everything up
-and starts your agent with a first example. If no agent is installed yet, it asks whether to
-install Claude Code or Codex; you log in to it once in your browser.
+## 🧭 Install
 
-- **Windows:** download [`Durweg-Install.bat`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install.bat) and double-click it.
-  1. Choose the language.
-  2. Choose where Durweg goes: **Windows**, or **WSL** (Linux inside Windows; take it if you also
-     want workflows that need Linux).
-  3. Without WSL yet, it installs WSL first: approve the administrator prompt, restart, open
-     "Ubuntu" from the Start menu once to choose a Linux user name and password, then double-click
-     the file again. It remembers your choices.
-  4. "Windows protected your PC": click **More info → Run anyway**.
-- **macOS:** download [`Durweg-Install-macOS.zip`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install-macOS.zip), unzip it, double-click `Durweg-Install.command`.
-  The first time macOS may block it: open System Settings → Privacy & Security and allow it. If macOS
-  installs its developer tools first, double-click the file again when that has finished.
-- **Linux:** open a terminal and paste
-  `curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.0.0/install.sh | bash`
+You need no GitHub account. You need an account for Claude Code or Codex (use counts against your
+own plan); if neither is on your computer yet, the installer installs one.
 
-Done looks like this: your agent starts and walks you through **write down your method**: you
-describe one piece of work you do the same way every time, confirm the steps, and get your own
-workflow, which you then run once.
+**Run the installer** (pick the row for your computer):
 
-## Every day
+| Your computer | What to do |
+| :--- | :--- |
+| **Windows**<br>(with or without WSL) | • Download [`Durweg-Install.bat`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install.bat) and double-click it in Windows<br>• To install into WSL, use it too and choose WSL in the installer; you do not open WSL or type commands yourself |
+| **Mac** | Download [`Durweg-Install-macOS.zip`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install-macOS.zip), unzip it and double-click `Durweg-Install.command` |
+| **Linux**<br>(not WSL on Windows) | In a terminal, run:<br>`curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.0.0/install.sh \| bash` |
 
-1. Open a terminal in the folder of the project you work on: on Windows, Windows Terminal (if Durweg
-   is in WSL: "Ubuntu" from the Start menu); on macOS and Linux, Terminal. Each run is kept in a
-   `runs/` folder there.
-2. Start your agent: type `claude` (Claude Code) or `codex` (Codex) and press Enter.
-3. Tell it what you want:
-   - **A new workflow:** "Run write-your-method with durweg." It is the same guide the installer
-     started: you describe one piece of work, confirm the steps, and get a new workflow in your
-     library.
-   - **Run a workflow:** "Run weekly-report with durweg." It goes step by step, stops where a step's
+The installer asks for your language first (on Windows also where to install: Windows or WSL),
+sets everything up, starts your agent and walks you through the [example](#-example-write-down-your-method).
+What to answer at each question on the way: see [Questions during installation](#-questions-during-installation)
+at the end of this page.
+
+## 📅 Every day
+
+1. **Open a terminal.** Windows: open Windows Terminal (if Durweg is in WSL, open "Ubuntu" from the
+   Start menu). Mac or Linux: open Terminal.
+2. **Go to your project folder:** `cd ~/projects/my-project` (on Windows itself, for example
+   `cd C:\Users\<you>\projects\my-project`). Each run is kept in a `runs/` folder there.
+3. **Start your agent:** type `claude` (Claude Code) or `codex` (Codex) and press Enter.
+4. **Tell it what to do:**
+   - Run a workflow: "Run weekly-report with durweg." It goes step by step, stops where a step's
      check fails, and asks you where your method says you decide.
-   - **See what you have:** "Show me my durweg workflows" (it runs `durweg library list`).
+   - Make a new workflow: "Run write-your-method with durweg." (the guide from the
+     [example](#-example-write-down-your-method)).
+   - See what you have: "Show me my durweg workflows."
 
-## Where your files are
+## 📁 Where your files are
 
-- `~/Durweg/` (on Windows `C:\Users\<you>\Durweg`): your settings (`config.json`, the language),
-  your workflows (`workflows/`) and the list of them (`library.json`).
-- Each run is a folder under `runs/` in the project folder you started it from: `steps/` holds what
-  each step delivered, `run.md` a readable summary (`durweg render <run>`), `.wf/` the record and the
-  locked copy of the workflow (do not edit it).
+| What | Where | What is in it |
+| :--- | :--- | :--- |
+| **Your settings and workflows** | `~/Durweg/` | • `config.json`: the settings, with the language<br>• `workflows/`: your workflows<br>• `library.json`: the list of them |
+| **The record of each run** | under `runs/` in the project folder you started it from, one folder per run | • `steps/`: what each step delivered<br>• `run.md`: a readable summary (`durweg render <run>`)<br>• `.wf/`: the record and the locked copy of the workflow (do not edit it) |
 
-## Example: write down your method
+**Finding them in Windows:**
 
-This is the first thing the installer starts; it shows what Durweg is for. You tell the agent how
-you do one piece of work (say, the weekly status report: collect, write, approve); it writes your
-steps down, shows them to you, and builds a workflow `weekly-report` from exactly the steps you
-confirmed. It puts the workflow into your library and runs it once with you. From then on: "Run
-weekly-report with durweg."
+| Durweg is installed | How to find them |
+| :--- | :--- |
+| **on Windows itself** | `~/Durweg` is `C:\Users\<you>\Durweg` |
+| **in WSL** | • In File Explorer's left pane: **Linux → Ubuntu → home → <your Linux user name>**<br>• Or run `explorer.exe .` in the WSL terminal to open the current folder |
 
-## What you can do
+On a Mac and on Linux they are in your home folder.
 
-- Write a workflow by hand: [docs/workflow-format.md](docs/workflow-format.md).
-- Check a run: `durweg check <run folder>`.
-- Change the language: `durweg config language en` (or `zh`). To install somewhere else (on Windows: also
-  into WSL), run the installer again; when it asks whether to change Durweg, type `c`.
-- Remove Durweg (keeps `~/Durweg` and your runs): `durweg uninstall`, see [docs/uninstall.md](docs/uninstall.md).
-- Compare a run with the agent's session files: the optional plugin [durweg-audit](https://github.com/musetee/durweg-audit).
+## 🚀 Example: write down your method
 
-## Common problems
+This example shows how Durweg turns one of your fixed ways of working into a workflow: taking the
+weekly status report, you make your own workflow `weekly-report` and run it once. The installer
+walks you through it the first time; to make another one later, follow these steps.
 
-- **Windows 10: the Claude login does not work in the installer window.** Windows 10's old console
-  cannot show modern command-line programs well. Install Windows Terminal (Microsoft Store) if you do
-  not have it, open it, and run the installer there: open a **Command Prompt** tab (the ˅ next to
-  the tabs), drag `Durweg-Install.bat` into it and press Enter. In a PowerShell tab, type `& ` first,
-  then drag the file in and press Enter.
+1. **Open a terminal** (step 1 of "Every day").
+2. **Make a practice folder and go into it:** `mkdir -p ~/projects/first-method && cd ~/projects/first-method`.
+   The record of this run goes there.
+3. **Start your agent** (step 3 of "Every day").
+4. **Tell it:** "Run write-your-method with durweg." Then answer its questions on how you do the
+   weekly report (collect, write, approve and send), and confirm the steps it shows you.
+
+Done looks like this: the agent tells you the check result is `PASS`, and "Show me my durweg
+workflows" lists `weekly-report`. From then on: "Run weekly-report with durweg."
+
+## 🙋 I want to …
+
+| I want to | How |
+| :--- | :--- |
+| Write a workflow by hand | [workflow format](docs/workflow-format.md) |
+| Check a run | `durweg check <run folder>` |
+| Change the language | `durweg config language en` (or `zh`) |
+| Install somewhere else (on Windows: into WSL) | Run the installer again and type `c` when it asks whether to change Durweg |
+| Compare a run with the agent's own session files | The optional plugin [durweg-audit](https://github.com/musetee/durweg-audit) |
+| Remove Durweg | `durweg uninstall`: keeps `~/Durweg` and your runs ([uninstall](docs/uninstall.md)) |
+
+## 🛠️ Common problems
+
+- **Windows 10: the Claude login does not work in the installer window.** Run the installer in
+  Windows Terminal instead: open a Command Prompt tab, drag `Durweg-Install.bat` into it and press
+  Enter ([step by step](docs/troubleshooting.md#windows-10-the-claude-login-does-not-work-in-the-installer-window)).
+- **You installed another agent after Durweg (say Codex first, Claude Code later):** the new agent
+  cannot use Durweg yet. Run the installer again and press Enter when it asks whether to change
+  Durweg; it sets Durweg up for every agent on the computer.
+
+## 💬 Questions during installation
+
+| Question | What to choose |
+| :--- | :--- |
+| **Language** | The language your agent will use; change it later with `durweg config language` |
+| **Where to install** (Windows) | • Usually **Windows**<br>• **WSL** (Linux inside Windows) if you also want workflows that need Linux |
+| **No WSL yet** | • Approve the administrator prompt and restart<br>• Open "Ubuntu" from the Start menu once to choose a Linux user name and password<br>• Double-click the installer again; it remembers your choices |
+| **"Windows protected your PC"** | Click **More info → Run anyway** |
+| **macOS blocked the installer** | • Open System Settings → Privacy & Security and allow it<br>• If macOS installs its developer tools first, double-click the file again when that has finished |
+| **Claude Code or Codex** | • Asked only when neither is installed; press Enter for Claude Code<br>• Log in to it once in your browser afterwards |
+| **Asked on a second run whether to change Durweg** | • Enter: keep the last choices (update or repair)<br>• `c`: choose again and install Durweg anew |
+
+---
 
 License: [MIT](LICENSE).
