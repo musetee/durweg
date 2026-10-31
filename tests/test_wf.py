@@ -488,7 +488,8 @@ class Portable(WfCase):
         from helpers import ROOT
         r = subprocess.run([sys.executable, str(ROOT / "bin" / "durweg"), "--version"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("durweg 1.0", r.stdout)
+        from durweg import __version__
+        self.assertIn(f"durweg {__version__}", r.stdout)
 
 
 class GitOptional(WfCase):
