@@ -1,105 +1,192 @@
 #!/usr/bin/env bash
-# Durweg bootstrap for a new Linux / WSL computer (apt). Run it after the three entry commands in
-# README.md (install git and gh, log in to GitHub, clone this repository):
-#   bash ~/durweg/install.sh
-# It only does what has to happen before an agent can run the setup workflow:
-#   1. checks GitHub access to both private repositories;  2. Python 3 and curl;
-#   3. the setup workflow (musetee/aiagents at a fixed, reviewed commit) in ~/aiagents;
-#   4. Claude Code;  5. wf and the skills run-workflow and setup-agents for Claude Code;
-#   6. tells you how to start the setup workflow.
-# Safe to run again: what is there already is kept. Stops at the first problem and says what to do.
+# Durweg installer for Linux (also inside WSL) and macOS. No git and no GitHub account needed.
+#   curl -fsSL https://raw.githubusercontent.com/musetee/durweg/<version>/install.sh | bash
+# Durweg-Install.command (macOS) and Durweg-Install.bat (Windows, "WSL") run this script too.
+#
+# Order (plan 2.1): language -> what this system needs (Python 3, curl) -> the fixed Durweg version,
+# checked by sha256, unpacked into its own folder and tried before it becomes current -> the
+# durweg command and the skills for the agents -> ~/Durweg (settings, library with the example)
+# -> start the agent with the first-run example. Safe to run again: that is also how to update.
+#
+# Settings for testing and for the double-click launchers (normally not needed):
+#   DURWEG_LANG=en|zh  DURWEG_AGENT=claude|codex|skip  DURWEG_NO_START=1
+#   DURWEG_SOURCE=<path or URL of durweg-<version>.tar.gz>  DURWEG_SHA256=<its sha256>
 set -uo pipefail
 
-AIAGENTS_REPO="${DURWEG_AIAGENTS_REPO:-musetee/aiagents}"
-AIAGENTS_COMMIT="${DURWEG_AIAGENTS_COMMIT:-ffc3c3b8755364f5d95854bbd203d72b2e835e6e}"   # reviewed commit of branch durweg-setup
-DURWEG_REPO="${DURWEG_REPO:-musetee/durweg}"
-AIAGENTS_DIR="${DURWEG_AIAGENTS_DIR:-$HOME/aiagents}"
-RUNS="$HOME/durweg-runs"
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERSION="${DURWEG_VERSION:-v1.0.0}"
+REPO="musetee/durweg"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}/durweg"
+BIN="$HOME/.local/bin"
+DHOME="${DURWEG_HOME:-$HOME/Durweg}"
+OS="$(uname -s)"
+TTY=/dev/tty; { : < "$TTY"; } 2>/dev/null || TTY=''
 
-say()  { printf '  %s\n' "$*"; }
-ok()   { printf '  [OK] %s\n' "$*"; }
-stop() { printf '  [X]  %s\n' "$1"; [ -n "${2:-}" ] && printf '       %s\n' "$2"; exit 1; }
-has()  { command -v "$1" >/dev/null 2>&1; }
-AGAIN="Then run again: bash $HERE/install.sh"
+# ---- language ---------------------------------------------------------------------------------
+LANG_CHOICE="${DURWEG_LANG:-}"
+if [ -z "$LANG_CHOICE" ] && [ -f "$DHOME/config.json" ]; then
+    LANG_CHOICE="$(sed -n 's/.*"language"[[:space:]]*:[[:space:]]*"\([a-z]*\)".*/\1/p' "$DHOME/config.json" | head -n 1)"
+fi
+if [ -z "$LANG_CHOICE" ]; then
+    if [ -n "$TTY" ]; then
+        printf '\n  Durweg\n\n  1) English\n  2) 中文\n\n  Language / 语言 [1]: '
+        read -r ans < "$TTY" || ans=''
+        case "$ans" in 2*) LANG_CHOICE=zh ;; *) LANG_CHOICE=en ;; esac
+    else
+        LANG_CHOICE=en; echo "  (no terminal to ask in: English)"
+    fi
+fi
+case "$LANG_CHOICE" in zh|en) ;; *) LANG_CHOICE=en ;; esac
+t() { if [ "$LANG_CHOICE" = zh ]; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
+say()  { printf '  %s\n' "$(t "$1" "$2")"; }
+ok()   { printf '  [OK] %s\n' "$(t "$1" "$2")"; }
+stop() { printf '  [X]  %s\n' "$(t "$1" "$2")"; printf '       %s\n' "$(t "Fix this, then run the installer again." "解决以后，再运行一次安装程序。")"; exit 1; }
+ask()  {   # ask "<en>" "<zh>" default -> echoes the answer
+    local a=''
+    if [ -n "$TTY" ]; then printf '  %s ' "$(t "$1" "$2")" > /dev/tty; read -r a < "$TTY" || a=''; fi
+    printf '%s' "${a:-$3}"
+}
+echo; say "Installing Durweg $VERSION" "正在安装 Durweg $VERSION"
 
-echo; say "Durweg: set up the base for the setup workflow"; echo
+# ---- what this system needs -------------------------------------------------------------------
+has() { command -v "$1" >/dev/null 2>&1; }
+if [ "$OS" = Darwin ]; then
+    if ! xcode-select -p >/dev/null 2>&1 || ! /usr/bin/python3 -c 'import sys' >/dev/null 2>&1; then
+        xcode-select --install >/dev/null 2>&1 || true
+        say "macOS is installing its developer tools (a window opened). When that has finished," \
+            "macOS 正在安装开发者工具（已经弹出一个窗口）。装完以后，"
+        say "double-click Durweg-Install.command again." "请再双击一次 Durweg-Install.command。"
+        exit 1
+    fi
+else
+    missing=''
+    python3 -c 'import sys' >/dev/null 2>&1 || missing="$missing python3"
+    has curl || missing="$missing curl"
+    has tar || missing="$missing tar"
+    if [ -n "$missing" ]; then
+        has apt-get || stop "Missing:$missing. Install them with your package manager." \
+                            "缺少：$missing。请用系统的软件包管理器安装。"
+        say "Installing$missing (sudo asks for your password)..." "正在安装$missing（sudo 会要你的系统密码）……"
+        sudo apt-get update -qq && sudo apt-get install -y$missing || stop "Installing$missing failed." "安装$missing 失败。"
+    fi
+fi
+python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))' || \
+    stop "Durweg needs Python 3.10 or newer ($(python3 --version 2>&1))." "Durweg 需要 Python 3.10 或更新版本（现在是 $(python3 --version 2>&1)）。"
+pyv="$(python3 -c 'import platform; print(platform.python_version())')"
+ok "Python $pyv" "Python $pyv"
 
-# 1. GitHub access (both repositories are private)
-case "$AIAGENTS_COMMIT" in
-    *[!0-9a-f]*|'') stop "This install.sh is not a release (no fixed setup-workflow version)." \
-                         "Get the released install.sh: git -C $HERE pull" ;;
+# ---- the fixed Durweg version -----------------------------------------------------------------
+SRC="${DURWEG_SOURCE:-https://github.com/$REPO/releases/download/$VERSION/durweg-$VERSION.tar.gz}"
+SHA="${DURWEG_SHA256:-}"
+mkdir -p "$DATA"
+work="$(mktemp -d "$DATA/.download.XXXXXX")"; trap 'rm -rf "$work"' EXIT
+pkg="$work/durweg.tar.gz"
+case "$SRC" in
+    http://*|https://*)
+        curl -fsSL --retry 2 -o "$pkg" "$SRC" || stop "Download failed: $SRC" "下载失败：$SRC"
+        [ -n "$SHA" ] || SHA="$(curl -fsSL "$SRC.sha256" 2>/dev/null | awk '{print $1}')" ;;
+    *)  cp "$SRC" "$pkg" 2>/dev/null || stop "Not found: $SRC" "找不到：$SRC"
+        [ -n "$SHA" ] || { [ -f "$SRC.sha256" ] && SHA="$(awk '{print $1}' "$SRC.sha256")"; } ;;
 esac
-has gh || stop "gh (GitHub CLI) is missing." "Install it: sudo apt-get install -y gh. $AGAIN"
-gh auth status >/dev/null 2>&1 || stop "You are not logged in to GitHub." \
-    "Run: gh auth login --hostname github.com --git-protocol https --web && gh auth setup-git. $AGAIN"
-gh repo view "$DURWEG_REPO" >/dev/null 2>&1 || stop "No access to $DURWEG_REPO." \
-    "Ask its owner for access, or check the GitHub account you logged in with (gh auth status). $AGAIN"
-gh api "repos/$AIAGENTS_REPO/commits/$AIAGENTS_COMMIT" >/dev/null 2>&1 || stop \
-    "No access to $AIAGENTS_REPO at $AIAGENTS_COMMIT." \
-    "Ask its owner for access, or check the network. $AGAIN"
-ok "GitHub access to $DURWEG_REPO and $AIAGENTS_REPO"
-
-# 2. Python 3 and curl
-missing=''
-python3 -c 'import sys' >/dev/null 2>&1 || missing="$missing python3"
-has curl || missing="$missing curl"
-if [ -n "$missing" ]; then
-    has apt-get || stop "Missing:$missing, and apt-get is not available." "Install them, then: $AGAIN"
-    say "Installing$missing (sudo asks for your password)..."
-    sudo apt-get update -qq && sudo apt-get install -y$missing || stop "Installing$missing failed." "$AGAIN"
+[ -n "$SHA" ] || stop "No sha256 for the download, so it cannot be checked." "下载没有附带 sha256，无法校验。"
+actual="$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$pkg")"
+[ "$actual" = "$SHA" ] || stop "The download is damaged (sha256 differs); try again." "下载的文件不完整（sha256 不符），请重试。"
+new="$DATA/$VERSION"
+if [ ! -x "$new/bin/durweg" ]; then
+    mkdir -p "$work/x" && tar -xzf "$pkg" -C "$work/x" || stop "Unpacking failed." "解压失败。"
+    top="$(find "$work/x" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+    python3 "$top/bin/durweg" --version >/dev/null 2>&1 || stop "This Durweg version does not run here." "这个版本的 Durweg 在这里运行不了。"
+    rm -rf "$new"; mv "$top" "$new"
 fi
-ok "Python 3 and curl"
+rm -f "$DATA/current.new"; ln -s "$new" "$DATA/current.new"
+mv -f "$DATA/current.new" "$DATA/current" 2>/dev/null || { rm -f "$DATA/current"; ln -s "$new" "$DATA/current"; }
+[ "$(readlink "$DATA/current")" = "$new" ] || { rm -rf "$DATA/current"; ln -s "$new" "$DATA/current"; }
+ok "Durweg $VERSION in $new" "Durweg $VERSION 已放在 $new"
 
-# 3. The setup workflow at the fixed commit
-if [ -d "$AIAGENTS_DIR/.git" ]; then
-    [ -z "$(git -C "$AIAGENTS_DIR" status --porcelain --untracked-files=all)" ] || stop \
-        "$AIAGENTS_DIR has local changes; it is not touched." "Move it away or commit the changes. $AGAIN"
-    git -C "$AIAGENTS_DIR" cat-file -e "$AIAGENTS_COMMIT^{commit}" 2>/dev/null || \
-        git -C "$AIAGENTS_DIR" fetch -q origin || stop "Could not update $AIAGENTS_DIR." "$AGAIN"
-elif [ -e "$AIAGENTS_DIR" ]; then
-    stop "$AIAGENTS_DIR exists and is not a git clone; it is not touched." "Move it away. $AGAIN"
-else
-    gh repo clone "$AIAGENTS_REPO" "$AIAGENTS_DIR" -- -q || stop "Cloning $AIAGENTS_REPO failed." "$AGAIN"
-fi
-git -C "$AIAGENTS_DIR" checkout -q --detach "$AIAGENTS_COMMIT" 2>/dev/null || stop \
-    "$AIAGENTS_DIR has no commit $AIAGENTS_COMMIT." "$AGAIN"
-ok "Setup workflow: $AIAGENTS_DIR at ${AIAGENTS_COMMIT:0:10}"
+# ---- the durweg command -----------------------------------------------------------------------
+mkdir -p "$BIN"
+link_owned() {   # link_owned <target> <link>: create, or update when it is ours; report anything else
+    if [ -L "$2" ] && case "$(readlink "$2")" in "$DATA"/*) true ;; *) false ;; esac; then ln -sfn "$1" "$2"
+    elif [ -e "$2" ] || [ -L "$2" ]; then say "Kept $2: it is not Durweg's." "保留了 $2：它不属于 Durweg。"; return 1
+    else ln -s "$1" "$2"; fi
+}
+link_owned "$DATA/current/bin/durweg" "$BIN/durweg" || stop "$BIN/durweg belongs to another program." "$BIN/durweg 属于别的程序。"
+old="$BIN/wf"   # the command was called wf before v1
+[ -L "$old" ] && case "$(readlink "$old")" in */durweg/bin/wf|*/workflow-platform/bin/wf|"$DATA"/*) rm -f "$old" ;; esac
+path_line=''
+case ":$PATH:" in *":$BIN:"*) ;; *)
+    rc="$HOME/.bashrc"; [ "$(basename "${SHELL:-}")" = zsh ] && rc="$HOME/.zshrc"
+    line="export PATH=\"\$HOME/.local/bin:\$PATH\"  # added by Durweg"
+    grep -Fqx "$line" "$rc" 2>/dev/null || printf '\n%s\n' "$line" >> "$rc"
+    path_line="$rc"; export PATH="$BIN:$PATH" ;;
+esac
+durweg --version >/dev/null 2>&1 || stop "The durweg command does not run." "durweg 命令运行不了。"
+ok "Command: durweg" "命令：durweg"
 
-# 4. Claude Code (before the skills: they go into its folder, which must exist - DS-C-001)
-export PATH="$HOME/.local/bin:$PATH"
-if ! claude --version >/dev/null 2>&1; then
-    say "Installing Claude Code (the download may show no progress)..."
-    curl -fsSL https://claude.ai/install.sh | bash || stop "Installing Claude Code failed." "$AGAIN"
-fi
-claude --version >/dev/null 2>&1 || stop "claude does not run after installing." \
-    "Open a new terminal and run again: bash $HERE/install.sh"
-ok "Claude Code: $(claude --version 2>&1 | head -n 1)"
+# ---- ~/Durweg: settings and the library with the example ---------------------------------------
+mkdir -p "$DHOME/workflows"
+python3 - "$DHOME/config.json" "$LANG_CHOICE" <<'PY'
+import json, sys
+p, lang = sys.argv[1], sys.argv[2]
+try:
+    c = json.load(open(p, encoding="utf-8"))
+except (OSError, ValueError):
+    c = {}
+c["language"] = lang
+json.dump(c, open(p, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
+PY
+durweg library list 2>/dev/null | grep -q '^write-your-method ' || \
+    durweg library add "$DATA/current/examples/write-your-method" --name write-your-method >/dev/null || \
+    stop "The example could not be added to the library." "示例无法加入方法库。"
+ok "Your folder: $DHOME (settings, your workflows)" "你的文件夹：$DHOME（设置和你的工作流）"
 
-# 5. wf, and the skills Claude needs: run-workflow (wf) and setup-agents (the setup workflow)
-mkdir -p "$HOME/.claude/skills"
-bash "$HERE/tools/install.sh" | sed 's/^/  /' || stop "Installing wf failed." "$AGAIN"
-rc="$HOME/.bashrc"
-grep -Fq '.local/bin' "$rc" 2>/dev/null || { printf '\nexport PATH="$HOME/.local/bin:$PATH"  # added by durweg\n' >> "$rc"; ok "Added ~/.local/bin to PATH in $rc"; }
-durweg --help >/dev/null 2>&1 || stop "durweg does not run." "$AGAIN"
-setup_skill="$HOME/.claude/skills/setup-agents"
-if [ -L "$setup_skill" ] && [ "$(readlink "$setup_skill")" = "$AIAGENTS_DIR/skills/setup-agents" ]; then :
-elif [ -e "$setup_skill" ] || [ -L "$setup_skill" ]; then
-    stop "$setup_skill exists and is not Durweg's link; it is not touched." "Move it away. $AGAIN"
-else
-    ln -s "$AIAGENTS_DIR/skills/setup-agents" "$setup_skill"
+# ---- agents and their skills ------------------------------------------------------------------
+agents=''
+{ has claude || [ -d "$HOME/.claude" ]; } && agents="$agents claude"
+{ has codex || [ -d "${CODEX_HOME:-$HOME/.codex}" ]; } && agents="$agents codex"
+if [ -z "$agents" ]; then
+    choice="${DURWEG_AGENT:-}"
+    if [ -z "$choice" ]; then
+        say "No AI agent found. Which one should be installed?" "没有找到 AI agent。要装哪一个？"
+        printf '  1) Claude Code\n  2) Codex\n'
+        case "$(ask "[1]:" "[1]：" 1)" in 2*) choice=codex ;; *) choice=claude ;; esac
+    fi
+    case "$choice" in
+        claude) curl -fsSL https://claude.ai/install.sh | bash || stop "Installing Claude Code failed." "安装 Claude Code 失败。" ;;
+        codex)  curl -fsSL https://chatgpt.com/codex/install.sh | sh || stop "Installing Codex failed." "安装 Codex 失败。" ;;
+    esac
+    [ "$choice" = skip ] || agents=" $choice"
 fi
-for s in run-workflow setup-agents; do
-    [ -f "$HOME/.claude/skills/$s/SKILL.md" ] || stop "Claude cannot read the skill $s." "$AGAIN"
+skills=''
+for a in $agents; do
+    case "$a" in claude) dir="$HOME/.claude/skills" ;; codex) dir="${CODEX_HOME:-$HOME/.codex}/skills" ;; esac
+    mkdir -p "$dir"
+    for s in run-workflow write-your-method; do
+        src="$DATA/current/skills/$s"; [ -d "$src" ] || src="$DATA/current/examples/$s/skills/$s"
+        link_owned "$src" "$dir/$s" && skills="$skills $dir/$s"
+    done
 done
-ok "durweg, and the skills run-workflow and setup-agents for Claude Code"
+[ -n "$agents" ] && ok "Skills for:$agents" "已为这些 agent 装好 skill：$agents"
 
-# 6. Next
-mkdir -p "$RUNS"
+# ---- install manifest (what belongs to Durweg; used by updates and durweg uninstall) -----------
+python3 - "$DHOME/.install.json" "$VERSION" "$actual" "$DATA" "$BIN/durweg" "$path_line" $skills <<'PY'
+import json, sys, os
+p, version, sha, data, launcher, path_line, *skills = sys.argv[1:]
+json.dump({"format": 1, "version": version, "sha256": sha, "platform_dir": os.path.join(data, "current"),
+           "data_dir": data, "launchers": [launcher], "skills": skills,
+           "path_lines": [path_line] if path_line else []},
+          open(p, "w", encoding="utf-8"), indent=1)
+PY
+
+# ---- start ------------------------------------------------------------------------------------
+first="$(t "Please talk to me in English. Use durweg to run the example write-your-method with me (skill run-workflow)." \
+           "请用中文和我交流。用 durweg 带我运行示例 write-your-method（skill run-workflow）。")"
+agent="${agents# }"; agent="${agent%% *}"
 echo
-say "Next: open a NEW terminal, run: claude"
-say "(the first start asks you to log in), and give it this text:"
-echo
-echo "    Run the Durweg setup workflow with durweg: durweg start $AIAGENTS_DIR setup --runs $RUNS"
-echo "    then follow the skill setup-agents ($AIAGENTS_DIR/skills/setup-agents/SKILL.md) step by step."
-echo
+say "Durweg is installed." "Durweg 装好了。"
+if [ -n "$agent" ] && [ -z "${DURWEG_NO_START:-}" ] && [ -n "$TTY" ] && has "$agent"; then
+    say "Starting $agent with the first example (it may ask you to log in first)..." \
+        "正在启动 $agent，带你做第一个示例（第一次可能会先让你登录）……"
+    cd "$HOME" && exec "$agent" "$first" < "$TTY"
+fi
+say "Next: open a new terminal, start your agent, and tell it:" "下一步：打开一个新终端，启动你的 agent，然后对它说："
+printf '    %s\n' "$first"
