@@ -278,20 +278,34 @@ def _tokens(seg):
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 
-def wf_position(toks):
-    """Index of the wf subcommand if the segment *executes* wf, else None (WP-C-001).
+UNSUPPORTED = "unsupported"
+WRAPPERS = {"nice", "nohup", "timeout", "sudo", "command", "exec", "stdbuf", "xargs", "setsid", "script",
+            "chrt", "ionice", "taskset", "unbuffer", "watch", "flock", "su"}
 
-    Supported: `wf …`, `/path/to/wf …`, `VAR=x wf …`, `env [VAR=x] wf …`,
-    `python3 -m wf.cli …`, `python3 /path/to/bin/wf …`. Text after echo, printf, in quotes or
-    in any other argument is not a call.
+
+def _names_wf(tok):
+    return os.path.basename(tok) == "wf" or tok == "wf.cli"
+
+
+def wf_position(toks):
+    """Index of the wf subcommand if the segment *executes* wf; None if it does not;
+    UNSUPPORTED if wf appears behind a wrapper form audit does not read (WP-C-001).
+
+    Supported: `wf …`, `/path/to/wf …`, `VAR=x wf …`, `env VAR=x … wf …` (assignments only),
+    `python3 -m wf.cli …`, `python3 /path/to/bin/wf …`. echo/printf text and other arguments are
+    not calls. env with options, other wrappers (nice, timeout, sudo, …) and python with options
+    in front of wf are unsupported: never evidence, a gap instead.
     """
+    later_wf = any(_names_wf(x) for x in toks)
     i = 0
     while i < len(toks) and ASSIGN.match(toks[i]):
         i += 1
     if i < len(toks) and os.path.basename(toks[i]) == "env":
         i += 1
-        while i < len(toks) and (ASSIGN.match(toks[i]) or toks[i].startswith("-")):
+        while i < len(toks) and ASSIGN.match(toks[i]):
             i += 1
+        if i < len(toks) and toks[i].startswith("-"):
+            return UNSUPPORTED if later_wf else None
     if i >= len(toks):
         return None
     head = os.path.basename(toks[i])
@@ -302,12 +316,17 @@ def wf_position(toks):
             return i + 3
         if i + 1 < len(toks) and os.path.basename(toks[i + 1]) == "wf":
             return i + 2
+        return UNSUPPORTED if later_wf else None
+    if head in WRAPPERS and later_wf:
+        return UNSUPPORTED
     return None
 
 
 def parse_wf(toks):
     """If the tokens execute wf, return {sub, pos, quote, set}."""
     j = wf_position(toks)
+    if j == UNSUPPORTED:
+        return UNSUPPORTED
     if j is None or j >= len(toks) or toks[j] not in SUBS:
         return None
     rest, info = toks[j + 1:], {"sub": toks[j], "pos": [], "quote": None, "set": {}}
@@ -378,6 +397,9 @@ def call_ops(call):
                 here = _resolve(toks[1], here)
                 continue
             w = parse_wf(toks)
+            if w == UNSUPPORTED:
+                ops.append(("unparsed", {"cmd": seg.strip()}))
+                continue
             if w:
                 w["cwd"] = here
                 ops.append(("wf", w))

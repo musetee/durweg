@@ -741,3 +741,52 @@ class Subset(WfCase):
         rc, out = self.audit()
         self.assertEqual(rc, 1, out)
         self.assertIn("no successful wf call", out)
+
+
+class EnvWrapper(WfCase):
+    """WP-C-001 round 5: env only with VAR=value assignments; other wrappers are not evidence."""
+
+    def cached(self, render):
+        return Quoting.cached(self, render)
+
+    def test_env_help_is_not_a_call(self):
+        rc, out = self.cached(lambda s: f"env --help wf {s} {self.run} topic && cat cache")
+        self.assertNotEqual(rc, 0, out)
+        self.assertIn("outside the shell subset", out)
+
+    def test_env_version_and_other_wrappers(self):
+        for render in (lambda s: f"env --version wf {s} {self.run} topic && cat cache",
+                       lambda s: f"env -i wf {s} {self.run} topic && cat cache",
+                       lambda s: f"timeout 5 wf {s} {self.run} topic && cat cache",
+                       lambda s: f"python3 -I wf {s} {self.run} topic && cat cache"):
+            self.tearDown()
+            self.setUp()
+            rc, out = self.cached(render)
+            self.assertNotEqual(rc, 0, out)
+
+    def test_env_assignments_count(self):
+        w = json.loads((self.repo / "workflow.json").read_text())
+        w["steps"] = w["steps"][:1]
+        w["steps"][0]["gates"] = w["steps"][0]["gates"][:1]
+        (self.repo / "workflow.json").write_text(json.dumps(w))
+        git(self.repo, "commit", "-qam", "single step")
+        self.start()
+        q = shlex.quote(str(self.run))
+        for cmd in (f"env A=1 B=2 {WF_BIN} begin {q} topic", None, f"LANG=C env X=1 {WF_BIN} done {q} topic"):
+            if cmd is None:
+                self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+                continue
+            r = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.tr.bash(cmd, r.stdout + r.stderr)
+        rc, out = self.audit()
+        self.assertEqual(rc, 0, out)
+
+    def test_wf_position_table(self):
+        from wf.audit import wf_position, UNSUPPORTED
+        cases = {"wf begin R s": 1, "/x/bin/wf begin R s": 1, "A=1 wf begin": 2, "env A=1 wf begin": 3,
+                 "python3 -m wf.cli begin": 3, "python3 /x/bin/wf begin": 2, "echo wf begin": None,
+                 "printf %s wf": None, "env --help wf begin": UNSUPPORTED, "env -u A wf begin": UNSUPPORTED,
+                 "nice wf begin": UNSUPPORTED, "python3 -I /x/wf begin": UNSUPPORTED, "env --help": None}
+        for cmd, want in cases.items():
+            self.assertEqual(wf_position(cmd.split()), want, cmd)
