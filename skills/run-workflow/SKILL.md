@@ -29,8 +29,11 @@ Work only through these commands; they print `ok run=<id> event=<n>` when they s
 
 - One step at a time, in order. `begin` refuses a step whose earlier steps are not done.
 - To change a step that is already done (the user wants to change an earlier answer, or a new
-  candidate has to go through an earlier step): `wf reopen <run> <step> --reason "<why>"`. The
-  steps after it go back to pending and are done again; do not edit done files in place.
+  candidate has to go through an earlier step): `wf reopen <run> <step> --reason "<why>"`. Reopen
+  already starts that step again: do not `begin` it. The steps after it go back to pending and are
+  done again with `begin`; do not edit done files in place.
+- When a command is refused, stop and fix that first: do not run the next command of a batch as if
+  it had worked (put dependent commands on one line joined with `&&`).
 - When the user is away, stop at a user gate: say where you stopped (`wf status <run>`) and wait.
 - At the end: `wf check <run>`, then `wf render <run>` for a readable `run.md`. Report what
   `check` printed, including refusals and notes, not only "done".
