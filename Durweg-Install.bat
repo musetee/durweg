@@ -91,8 +91,9 @@ Say "Installing Durweg $Version on Windows" "正在把 Durweg $Version 装到 Wi
 
 # ---- Python 3.10 or newer --------------------------------------------------------------------
 function Find-Python {
-    foreach ($c in @(@('py', '-3'), @('python'))) {
-        if (Get-Command $c[0] -ErrorAction SilentlyContinue) {
+    $own = Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe'   # a per-user python.org install
+    foreach ($c in @(@('py', '-3'), @('python'), @($own))) {
+        if ((Get-Command $c[0] -ErrorAction SilentlyContinue) -or (Test-Path $c[0])) {
             $args2 = @($c | Select-Object -Skip 1) + @('-c', 'import sys; sys.exit(sys.version_info < (3, 9))')
             & $c[0] @args2 2>$null | Out-Null
             if ($LASTEXITCODE -eq 0) { return , $c }
@@ -103,16 +104,38 @@ function Find-Python {
 function Refresh-Path {
     $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
 }
-$Py = Find-Python
-if (-not $Py) {
-    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        Stop-Install 'Python 3 is missing and winget is not available. Install Python from python.org.' '缺少 Python 3，而且没有 winget。请从 python.org 安装 Python。'
+function Install-PythonOrg {
+    # Windows Sandbox, LTSC and older Windows 10 have no winget: the official installer from
+    # python.org, accepted only with a valid signature of the Python Software Foundation.
+    $pv = '3.12.10'
+    $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'arm64' } else { 'amd64' }
+    $url = "https://www.python.org/ftp/python/$pv/python-$pv-$arch.exe"
+    $exe = Join-Path $Local "python-$pv-$arch.exe"
+    Say "Downloading Python $pv from python.org..." "正在从 python.org 下载 Python $pv……"
+    try { Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $exe } catch { Stop-Install "Download failed: $url" "下载失败：$url" }
+    $sig = Get-AuthenticodeSignature -FilePath $exe
+    if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notlike '*Python Software Foundation*') {
+        Remove-Item -Force $exe
+        Stop-Install 'The Python installer is not signed by the Python Software Foundation; it was not run.' 'Python 安装程序没有 Python Software Foundation 的有效签名，没有运行它。'
     }
-    Say 'Installing Python 3.12 (winget)...' '正在安装 Python 3.12（winget）……'
-    & winget install -e --id Python.Python.3.12 --scope user --accept-package-agreements --accept-source-agreements | Out-Host
+    Say "Installing Python $pv (for this user)..." "正在安装 Python $pv（只装给当前用户）……"
+    $p = Start-Process -FilePath $exe -ArgumentList '/quiet', 'InstallAllUsers=0', 'PrependPath=1', 'Include_launcher=1', 'Include_test=0' -Wait -PassThru
+    Remove-Item -Force $exe -ErrorAction SilentlyContinue
+    if ($p.ExitCode -ne 0) { Stop-Install "The Python installer failed (exit $($p.ExitCode))." "Python 安装失败（退出码 $($p.ExitCode)）。" }
+}
+$Py = if ($env:DURWEG_TEST_PYTHON_DOWNLOAD) { $null } else { Find-Python }
+if (-not $Py) {
+    if ((Get-Command winget -ErrorAction SilentlyContinue) -and -not $env:DURWEG_TEST_PYTHON_DOWNLOAD) {
+        Say 'Installing Python 3.12 (winget)...' '正在安装 Python 3.12（winget）……'
+        & winget install -e --id Python.Python.3.12 --scope user --accept-package-agreements --accept-source-agreements | Out-Host
+    } else {
+        Install-PythonOrg
+    }
     Refresh-Path
-    $Py = Find-Python
-    if (-not $Py) { Stop-Install 'Python was installed but cannot be found yet.' 'Python 已经装好，但现在还找不到。' }
+    $Py = if ($env:DURWEG_TEST_PYTHON_DOWNLOAD) { , @((Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe')) } else { Find-Python }
+    if (-not $Py -or -not (Test-Path $Py[0]) -and -not (Get-Command $Py[0] -ErrorAction SilentlyContinue)) {
+        Stop-Install 'Python was installed but cannot be found yet; double-click again.' 'Python 已经装好，但现在还找不到；请再双击一次。'
+    }
 }
 $PyExe = $Py[0]; $PyArgs = @($Py | Select-Object -Skip 1)
 Ok 'Python' 'Python'
