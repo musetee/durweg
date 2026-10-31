@@ -347,7 +347,7 @@ class ReviewRegressions2(CatalogCase):
         git(self.repo, "config", "core.sshCommand", "ssh -i /tmp/repo-only-key")
         saved = os.environ.pop("GIT_SSH_COMMAND", None)
         try:
-            self.assertEqual(Path.cwd(), self.here)              # called from another folder
+            self.assertTrue(Path.cwd().samefile(self.here))      # called from another folder
             cmd = gitops.env(self.repo)["GIT_SSH_COMMAND"]
             self.assertIn("-i /tmp/repo-only-key", cmd)
             self.assertTrue(cmd.startswith("ssh -o BatchMode=yes"), cmd)
