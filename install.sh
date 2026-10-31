@@ -176,7 +176,7 @@ done
 [ -n "$agents" ] && ok "Skills for:$agents" "已为这些 agent 装好 skill：$agents"
 
 # ---- install manifest (what belongs to Durweg; used by updates and durweg uninstall) -----------
-python3 - "$DHOME/.install.json" "$VERSION" "$actual" "$DATA" "$BIN/durweg" "$path_line" "${skills[@]}" <<'PY'
+python3 - "$DHOME/.install.json" "$VERSION" "$actual" "$DATA" "$BIN/durweg" "$path_line" ${skills[@]+"${skills[@]}"} <<'PY'
 import json, sys, os
 p, version, sha, data, launcher, path_line, *skills = sys.argv[1:]
 try:

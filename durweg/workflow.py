@@ -137,7 +137,7 @@ def snapshot_sources(wf):
         raise WfError(f"skill folder {skill} does not exist")
     for p in skill.rglob("*"):
         if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc":
-            files.add(str(p.relative_to(root)))
+            files.add(p.relative_to(root).as_posix())
     for extra in wf.data.get("snapshot", []):
         if not (root / extra).is_file():
             raise WfError(f"snapshot file {extra} does not exist")
@@ -206,7 +206,7 @@ def verify_snapshot(run_dir, manifest):
             problems.append(f"snapshot file {rel} changed since start")
     if dest.is_dir():
         for p in dest.rglob("*"):
-            if p.is_file() and "__pycache__" not in p.parts and str(p.relative_to(dest)) not in manifest:
+            if p.is_file() and "__pycache__" not in p.parts and p.relative_to(dest).as_posix() not in manifest:
                 problems.append(f"snapshot has an extra file {p.relative_to(dest)}")
     return problems
 

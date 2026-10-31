@@ -17,8 +17,8 @@ def artifact_files(run_dir, wf, sid):
     found = set()
     for pattern in wf.step(sid)["artifacts"]:
         for p in glob.glob(str(run_dir / pattern), recursive=True):
-            rel = os.path.relpath(p, run_dir)
-            if os.path.isfile(p) and not rel.startswith(".wf" + os.sep):
+            rel = Path(os.path.relpath(p, run_dir)).as_posix()     # the same on every system
+            if os.path.isfile(p) and not rel.startswith(".wf/"):
                 found.add(rel)
     return sorted(found)
 
