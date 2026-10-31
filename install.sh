@@ -5,7 +5,8 @@
 # It only does what has to happen before an agent can run the setup workflow:
 #   1. checks GitHub access to both private repositories;  2. Python 3 and curl;
 #   3. the setup workflow (musetee/aiagents at a fixed, reviewed commit) in ~/aiagents;
-#   4. wf and its agent skill;  5. Claude Code;  6. tells you how to start the setup workflow.
+#   4. Claude Code;  5. wf and the skills run-workflow and setup-agents for Claude Code;
+#   6. tells you how to start the setup workflow.
 # Safe to run again: what is there already is kept. Stops at the first problem and says what to do.
 set -uo pipefail
 
@@ -65,15 +66,8 @@ git -C "$AIAGENTS_DIR" checkout -q --detach "$AIAGENTS_COMMIT" 2>/dev/null || st
     "$AIAGENTS_DIR has no commit $AIAGENTS_COMMIT." "$AGAIN"
 ok "Setup workflow: $AIAGENTS_DIR at ${AIAGENTS_COMMIT:0:10}"
 
-# 4. wf and the skill run-workflow
-bash "$HERE/tools/install.sh" | sed 's/^/  /' || stop "Installing wf failed." "$AGAIN"
+# 4. Claude Code (before the skills: they go into its folder, which must exist - DS-C-001)
 export PATH="$HOME/.local/bin:$PATH"
-rc="$HOME/.bashrc"
-grep -Fq '.local/bin' "$rc" 2>/dev/null || { printf '\nexport PATH="$HOME/.local/bin:$PATH"  # added by durweg\n' >> "$rc"; ok "Added ~/.local/bin to PATH in $rc"; }
-wf --help >/dev/null 2>&1 || stop "wf does not run." "$AGAIN"
-ok "wf"
-
-# 5. Claude Code
 if ! claude --version >/dev/null 2>&1; then
     say "Installing Claude Code (the download may show no progress)..."
     curl -fsSL https://claude.ai/install.sh | bash || stop "Installing Claude Code failed." "$AGAIN"
@@ -82,6 +76,24 @@ claude --version >/dev/null 2>&1 || stop "claude does not run after installing."
     "Open a new terminal and run again: bash $HERE/install.sh"
 ok "Claude Code: $(claude --version 2>&1 | head -n 1)"
 
+# 5. wf, and the skills Claude needs: run-workflow (wf) and setup-agents (the setup workflow)
+mkdir -p "$HOME/.claude/skills"
+bash "$HERE/tools/install.sh" | sed 's/^/  /' || stop "Installing wf failed." "$AGAIN"
+rc="$HOME/.bashrc"
+grep -Fq '.local/bin' "$rc" 2>/dev/null || { printf '\nexport PATH="$HOME/.local/bin:$PATH"  # added by durweg\n' >> "$rc"; ok "Added ~/.local/bin to PATH in $rc"; }
+wf --help >/dev/null 2>&1 || stop "wf does not run." "$AGAIN"
+setup_skill="$HOME/.claude/skills/setup-agents"
+if [ -L "$setup_skill" ] && [ "$(readlink "$setup_skill")" = "$AIAGENTS_DIR/skills/setup-agents" ]; then :
+elif [ -e "$setup_skill" ] || [ -L "$setup_skill" ]; then
+    stop "$setup_skill exists and is not Durweg's link; it is not touched." "Move it away. $AGAIN"
+else
+    ln -s "$AIAGENTS_DIR/skills/setup-agents" "$setup_skill"
+fi
+for s in run-workflow setup-agents; do
+    [ -f "$HOME/.claude/skills/$s/SKILL.md" ] || stop "Claude cannot read the skill $s." "$AGAIN"
+done
+ok "wf, and the skills run-workflow and setup-agents for Claude Code"
+
 # 6. Next
 mkdir -p "$RUNS"
 echo
@@ -89,5 +101,5 @@ say "Next: open a NEW terminal, run: claude"
 say "(the first start asks you to log in), and give it this text:"
 echo
 echo "    Run the Durweg setup workflow with wf: wf start $AIAGENTS_DIR setup --runs $RUNS"
-echo "    then follow the skill setup-agents step by step."
+echo "    then follow the skill setup-agents ($AIAGENTS_DIR/skills/setup-agents/SKILL.md) step by step."
 echo

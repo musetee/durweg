@@ -45,6 +45,8 @@ class Bootstrap(unittest.TestCase):
         self.upstream.mkdir()
         git(self.upstream, "init", "-q", "-b", "main")
         (self.upstream / "workflow.json").write_text("{}\n")
+        (self.upstream / "skills/setup-agents").mkdir(parents=True)
+        (self.upstream / "skills/setup-agents/SKILL.md").write_text("---\nname: setup-agents\n---\n")
         git(self.upstream, "add", "-A")
         git(self.upstream, "commit", "-q", "-m", "reviewed")
         self.commit = git(self.upstream, "rev-parse", "HEAD")
@@ -94,9 +96,22 @@ class Bootstrap(unittest.TestCase):
         self.assertTrue((self.home / "durweg-runs").is_dir())
         self.assertIn("wf start", out.stdout)
         self.assertEqual(self.calls().count("claude-installer"), 1)
+        skills = self.home / ".claude/skills"          # DS-C-001: fresh HOME, no config folder before
+        for s in ("run-workflow", "setup-agents"):
+            self.assertTrue((skills / s / "SKILL.md").is_file(), s)
+        self.assertIn("skills/setup-agents/SKILL.md", out.stdout)
+        (skills / "mine").mkdir()
+        (skills / "mine/SKILL.md").write_text("user's own\n")
         again = self.run_install()
         self.assertEqual(again.returncode, 0, again.stdout)
         self.assertEqual(self.calls().count("claude-installer"), 1, "Claude Code not installed twice")
+        self.assertEqual((skills / "mine/SKILL.md").read_text(), "user's own\n")
+
+    def test_foreign_setup_skill_is_not_touched(self):
+        (self.home / ".claude/skills/setup-agents").mkdir(parents=True)
+        out = self.run_install()
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("not Durweg's link", out.stdout)
 
     def test_changed_clone_is_not_touched(self):
         self.run_install()
