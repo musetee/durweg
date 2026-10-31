@@ -120,6 +120,24 @@ class Install(unittest.TestCase):
         self.assertEqual(u.returncode, 0, u.stdout + u.stderr)
         self.assertFalse((self.home / ".codex/skills/run-workflow").exists())
 
+    def test_antigravity_counts_and_gets_the_skills(self):
+        self.fake_agent("agy")
+        r = self.install(DURWEG_AGENT="")                  # agy runs: no question, nothing installed
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("No AI agent found", r.stdout)
+        for s in ("run-workflow", "write-your-method"):
+            self.assertTrue((self.home / ".gemini/config/skills" / s / "SKILL.md").is_file(), s)
+        u = self.durweg("uninstall")
+        self.assertEqual(u.returncode, 0, u.stdout + u.stderr)
+        self.assertFalse((self.home / ".gemini/config/skills/run-workflow").exists())
+
+    def test_antigravity_settings_folder_alone_gets_the_skills(self):
+        (self.home / ".gemini/antigravity-cli").mkdir(parents=True)  # agy started from its own place
+        r = self.install()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue((self.home / ".gemini/config/skills/run-workflow/SKILL.md").is_file())
+        self.assertFalse((self.home / ".claude/skills/run-workflow").exists())
+
     def test_no_terminal_means_english(self):
         r = self.install()
         self.assertIn("no terminal to ask in: English", r.stdout)

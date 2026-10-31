@@ -11,7 +11,8 @@ and asks you where your method says you decide, and every run leaves a record yo
 ## 🧭 Install
 
 You need no GitHub account. You need an account for Claude Code or Codex (use counts against your
-own plan); if neither is on your computer yet, the installer installs one.
+own plan); if neither is on your computer yet, the installer installs one. If you have Antigravity, it gets
+Durweg too.
 
 **Run the installer** (pick the row for your computer):
 

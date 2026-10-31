@@ -163,8 +163,18 @@ ok "Your folder: $DHOME (settings, your workflows)" "你的文件夹：${DHOME}�
 export PATH="$HOME/.local/bin:$HOME/.codex/bin:$PATH"
 runs_ok() { has "$1" && "$1" --version >/dev/null 2>&1; }
 agents=''
+# The agents Durweg supports and where each reads its skills. A new agent is one line in
+# skills_dir, one runs_ok line below, and a test.
+skills_dir() {
+    case "$1" in
+        claude) echo "$HOME/.claude/skills" ;;
+        codex)  echo "${CODEX_HOME:-$HOME/.codex}/skills" ;;
+        agy)    echo "$HOME/.gemini/config/skills" ;;               # Antigravity
+    esac
+}
 runs_ok claude && agents="$agents claude"
 runs_ok codex && agents="$agents codex"
+runs_ok agy && agents="$agents agy"
 if [ -z "$agents" ]; then
     choice="${DURWEG_AGENT:-}"
     if [ -z "$choice" ]; then
@@ -187,16 +197,19 @@ if [ -z "$agents" ]; then
         agents=" $choice"
     fi
 fi
+# Antigravity started from its own place: its settings folder is enough to give it the skills
+skill_agents="$agents"
+case " $skill_agents " in *" agy "*) ;; *) [ -d "$HOME/.gemini/antigravity-cli" ] && skill_agents="$skill_agents agy" ;; esac
 skills=()
-for a in $agents; do
-    case "$a" in claude) dir="$HOME/.claude/skills" ;; codex) dir="${CODEX_HOME:-$HOME/.codex}/skills" ;; esac
+for a in $skill_agents; do
+    dir="$(skills_dir "$a")"
     mkdir -p "$dir"
     for s in run-workflow write-your-method; do
         src="$DATA/current/skills/$s"; [ -d "$src" ] || src="$DATA/current/examples/$s/skills/$s"
         link_owned "$src" "$dir/$s" && skills+=("$dir/$s")
     done
 done
-[ -n "$agents" ] && ok "Skills for:$agents" "已为这些 agent 装好 skill：$agents"
+[ -n "$skill_agents" ] && ok "Skills for:$skill_agents" "已为这些 agent 装好 skill：$skill_agents"
 
 # ---- install manifest (what belongs to Durweg; used by updates and durweg uninstall) -----------
 python3 - "$DHOME/.install.json" "$VERSION" "$actual" "$DATA" "$BIN/durweg" "$path_line" ${skills[@]+"${skills[@]}"} <<'PY'
@@ -246,7 +259,9 @@ fi
 if [ -n "$agent" ] && [ -z "${DURWEG_NO_START:-}" ] && [ -n "$TTY" ] && has "$agent"; then
     say "Starting $agent with the first example (it may ask you to log in first)..." \
         "正在启动 ${agent}，带你做第一个示例（第一次可能会先让你登录）……"
-    cd "$HOME" && exec "$agent" "$first" < "$TTY"
+    cd "$HOME" || exit 1
+    [ "$agent" = agy ] && exec agy -i "$first" < "$TTY"          # Antigravity: prompt, then stay interactive
+    exec "$agent" "$first" < "$TTY"
 fi
 say "Next: open a new terminal, start your agent, and tell it:" "下一步：打开一个新终端，启动你的 agent，然后对它说："
 printf '    %s\n' "$first"

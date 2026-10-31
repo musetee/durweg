@@ -289,8 +289,18 @@ function Test-Agent($name) {
 }
 $env:Path = "$env:Path;$(Join-Path $HOME '.local\bin')"
 $agents = @()
+# The agents Durweg supports and where each reads its skills. A new agent is one line in
+# Get-SkillsDir, one Test-Agent line below, and a test.
+function Get-SkillsDir($a) {
+    switch ($a) {
+        'claude' { Join-Path $HOME '.claude\skills' }
+        'codex'  { Join-Path $(if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME '.codex' }) 'skills' }
+        'agy'    { Join-Path $HOME '.gemini\config\skills' }        # Antigravity
+    }
+}
 if (Test-Agent 'claude') { $agents += 'claude' }
 if (Test-Agent 'codex') { $agents += 'codex' }
+if (Test-Agent 'agy') { $agents += 'agy' }
 if ($agents.Count -eq 0) {
     $choice = $env:DURWEG_AGENT
     if (-not $choice) {
@@ -320,10 +330,13 @@ if ($agents.Count -eq 0) {
         $agents += $choice
     }
 }
+# Antigravity started from its own place: its settings or program folder is enough to give it the skills
+$skillAgents = @($agents)
+if ($skillAgents -notcontains 'agy' -and ((Test-Path (Join-Path $HOME '.gemini\antigravity-cli')) -or
+        (Test-Path (Join-Path $env:LOCALAPPDATA 'agy\bin\agy.exe')))) { $skillAgents += 'agy' }
 $skills = @()
-foreach ($a in $agents) {
-    $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME '.codex' }
-    $dir = if ($a -eq 'claude') { Join-Path $HOME '.claude\skills' } else { Join-Path $codexHome 'skills' }
+foreach ($a in $skillAgents) {
+    $dir = Get-SkillsDir $a
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     foreach ($s in @('run-workflow', 'write-your-method')) {
         $src = Join-Path $New "skills\$s"
@@ -338,7 +351,7 @@ foreach ($a in $agents) {
         $skills += $dst
     }
 }
-if ($agents.Count -gt 0) { Ok ('Skills for: ' + ($agents -join ', ')) ('已为这些 agent 装好 skill：' + ($agents -join '、')) }
+if ($skillAgents.Count -gt 0) { Ok ('Skills for: ' + ($skillAgents -join ', ')) ('已为这些 agent 装好 skill：' + ($skillAgents -join '、')) }
 
 # ---- install manifest (durweg uninstall reads it) ---------------------------------------------
 $old = Read-Json (Join-Path $DHome '.install.json')
@@ -365,7 +378,7 @@ if ($own) {
 if ($agents.Count -gt 0 -and -not $env:DURWEG_NO_START -and (Get-Command $agents[0] -ErrorAction SilentlyContinue)) {
     Say "Starting $($agents[0]) with the first example (it may ask you to log in first)..." "正在启动 $($agents[0])，带你做第一个示例（第一次可能会先让你登录）……"
     Set-Location $HOME
-    & $agents[0] $first
+    if ($agents[0] -eq 'agy') { & agy -i $first } else { & $agents[0] $first }   # Antigravity: prompt, then stay interactive
     exit 0
 }
 Say 'Next: open a new terminal, start your agent, and tell it:' '下一步：打开一个新终端，启动你的 agent，然后对它说：'

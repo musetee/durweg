@@ -169,3 +169,18 @@ jobs:
             }
           }
           if ($out -notmatch 'start your agent the way you always do') { throw "no own-way line: $out" }
+      - name: Antigravity's settings folder gets the skills (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:DURWEG_SOURCE = "$env:RUNNER_TEMP\pkg\durweg-v0.0.0-ci.zip"
+          $env:DURWEG_SHA256 = ((Get-Content "$env:DURWEG_SOURCE.sha256") -split '\s+')[0]
+          New-Item -ItemType Directory -Force -Path "$HOME\.gemini\antigravity-cli" | Out-Null
+          cmd /c Durweg-Install.bat
+          if ($LASTEXITCODE -ne 0) { throw "installer exit $LASTEXITCODE" }
+          foreach ($s in @('run-workflow', 'write-your-method')) {
+            if (-not (Test-Path "$HOME\.gemini\config\skills\$s\SKILL.md")) { throw "missing Antigravity skill $s" }
+          }
+          & "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd" uninstall
+          if ($LASTEXITCODE -ne 0) { throw "uninstall" }
+          if (Test-Path "$HOME\.gemini\config\skills\run-workflow") { throw "Antigravity skill not removed" }
