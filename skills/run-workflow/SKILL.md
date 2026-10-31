@@ -1,6 +1,6 @@
 ---
 name: run-workflow
-description: Run a user's workflow step by step with the wf tool - begin each step, write its files, pass its gates, let the user confirm where the workflow asks, never skip or merge steps. Use whenever a skill or the user says to run a workflow with wf, or a project has a runs/ directory with .wf/state.json.
+description: Run a user's workflow step by step with the durweg tool - begin each step, write its files, pass its gates, let the user confirm where the workflow asks, never skip or merge steps. Use whenever a skill or the user says to run a workflow with durweg, or a project has a runs/ directory with .wf/state.json.
 ---
 
 # run-workflow: follow a workflow with `durweg`
@@ -8,6 +8,11 @@ description: Run a user's workflow step by step with the wf tool - begin each st
 A workflow is a fixed way of working that the user wrote down. `durweg` keeps the order, checks each
 step's gates and records what happened, so the user can trust that every step was really done.
 Work only through these commands; they print `ok run=<id> event=<n>` when they succeed.
+Talk to the user in the language set in `~/Durweg/config.json` (`"zh"` Chinese, `"en"` English);
+commands, file names and step ids stay as they are.
+
+Start a run with `durweg start <name or folder> <name-of-this-run>`: a name from the library
+(`durweg library list`), or a folder (`./folder`); the run goes into `./runs/`.
 
 ## The loop, for every step
 
@@ -39,5 +44,4 @@ Work only through these commands; they print `ok run=<id> event=<n>` when they s
   `check` printed, including refusals and notes, not only "done".
 - Call `durweg` plainly (one command per line or joined with `&&`): no comments, `$( )`, loops or
   background `&` around it, or the audit cannot count the call.
-- Start a run with `durweg start <workflow-folder> <slug> [--trial]`; always pass the run folder to the
-  commands that change it.
+- Always pass the run folder to the commands that change it.
