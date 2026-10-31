@@ -121,6 +121,10 @@ To use the workflow yourself: [durweg-human-readme](https://github.com/musetee/d
 | **Claude Code or Codex** | • Asked only when no agent is found; press Enter for Claude Code, then log in to it once in your browser<br>• You already have an agent and start it your own way (for example with a script): choose **3**; nothing new is installed |
 | **Asked on a second run whether to change Durweg** | • Enter: keep the last choices (update or repair)<br>• `c`: choose again and install Durweg anew |
 
+## 🙏 Special thanks
+
+Thanks to [moraywang95-svg](https://github.com/moraywang95-svg) and [Qizhe-Xu](https://github.com/Qizhe-Xu) for testing Durweg and giving feedback while it was being made.
+
 ---
 
 License: [MIT](LICENSE).

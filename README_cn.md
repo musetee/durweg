@@ -90,6 +90,10 @@ agent 告诉你检查结果是 `PASS`，并且“列出我的 durweg 工作流�
 | **装 Claude Code 还是 Codex** | • 只在电脑上找不到 agent 时才问；直接回车装 Claude Code，装好以后在浏览器里登录一次<br>• 已经装了 agent、平时用自己的方式（比如一个脚本）启动它：选 **3**，不装新的 |
 | **再次运行时问要不要修改** | • 回车：沿用上次的选择（更新或修复）<br>• 输入 `c`：重新选择，重新安装 |
 
+## 🙏 特别感谢
+
+感谢 [moraywang95-svg](https://github.com/moraywang95-svg) 和 [Qizhe-Xu](https://github.com/Qizhe-Xu) 在 Durweg 做出来的过程中帮我测试、提意见。
+
 ---
 
 MIT 许可证：[LICENSE](LICENSE)。
