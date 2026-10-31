@@ -13,7 +13,7 @@
 #   DURWEG_SOURCE=<path or URL of durweg-<version>.tar.gz>  DURWEG_SHA256=<its sha256>
 set -uo pipefail
 
-VERSION="${DURWEG_VERSION:-v1.0.0}"
+VERSION="${DURWEG_VERSION:-v1.0.1}"
 REPO="musetee/durweg"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/durweg"
 BIN="$HOME/.local/bin"
