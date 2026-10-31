@@ -78,6 +78,11 @@ walks you through it the first time; to make another one later, follow these ste
 Done looks like this: the agent tells you the check result is `PASS`, and "Show me my durweg
 workflows" lists `weekly-report`. From then on: "Run weekly-report with durweg."
 
+**A real case:** with this guide the workflow `human-readme` was written (the way the aiagents-public
+README was made), and then used to rewrite Durweg's own README. The method, the steps, the user's
+own words at each step and the lessons are on this case page (in Chinese):
+[A README for people · Durweg case](https://claude.ai/artifact/LGnCog4wnBmgMAWJg1Xmi4).
+
 ## 🙋 I want to …
 
 | I want to | How |
