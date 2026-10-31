@@ -330,8 +330,12 @@ def cmd_check(a):
 
 
 def cmd_audit(a):
-    from .audit import audit
-    return audit(Path(a.run).expanduser().resolve(), [Path(t).expanduser() for t in a.transcript])
+    """The audit is the optional plugin durweg-audit; this only says so and fails, so that a
+    missing plugin is never taken for a passed audit (plan V1-R-004)."""
+    print("durweg audit is an optional plugin: install durweg-audit "
+          "(https://github.com/musetee/durweg-audit), then run: durweg-audit <run> --transcript <files>",
+          file=sys.stderr)
+    return 5
 
 
 def main(argv=None):
@@ -378,9 +382,8 @@ def main(argv=None):
     p.add_argument("run")
     p = sub.add_parser("check")
     p.add_argument("run")
-    p = sub.add_parser("audit")
-    p.add_argument("run")
-    p.add_argument("--transcript", nargs="+", required=True, metavar="FILE")
+    p = sub.add_parser("audit", help="optional plugin durweg-audit (not installed by default)")
+    p.add_argument("rest", nargs=argparse.REMAINDER)
     a = ap.parse_args(argv)
     fn = {"start": cmd_start, "begin": cmd_begin, "propose": cmd_propose, "confirm": cmd_confirm,
           "done": cmd_done, "reopen": cmd_reopen, "status": cmd_status, "render": cmd_render,

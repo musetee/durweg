@@ -671,3 +671,9 @@ class Library(WfCase):
         finally:
             os.environ["PATH"] = old
         self.assertIn("needs git", out)
+
+
+class AuditIsAPlugin(WfCase):
+    def test_core_audit_only_points_to_the_plugin(self):
+        out = self.wf("audit", "x", "--transcript", "y", expect=5)
+        self.assertIn("durweg-audit", out)
