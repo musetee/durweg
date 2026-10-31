@@ -133,7 +133,9 @@ if (-not $Py) {
     }
     Refresh-Path
     $Py = if ($env:DURWEG_TEST_PYTHON_DOWNLOAD) { , @((Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe')) } else { Find-Python }
-    if (-not $Py -or -not (Test-Path $Py[0]) -and -not (Get-Command $Py[0] -ErrorAction SilentlyContinue)) {
+    $found = $false
+    if ($Py) { $found = (Test-Path $Py[0]) -or [bool](Get-Command $Py[0] -ErrorAction SilentlyContinue) }
+    if (-not $found) {
         Stop-Install 'Python was installed but cannot be found yet; double-click again.' 'Python 已经装好，但现在还找不到；请再双击一次。'
     }
 }
