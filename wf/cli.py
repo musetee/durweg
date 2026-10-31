@@ -155,9 +155,13 @@ def cmd_confirm(run, a):
     if gates.proposal_digest(run.dir, run.wf, a.step) != p["proposal_digest"]:
         run.refuse("confirm", a.step, f"step {a.step}: the proposal changed after `wf propose` "
                                       f"(event {p['n']}); propose again and show it to the user")
-    n = run.st.append({"t": now(), "type": "confirm", "step": a.step, "round": run.rp.round[a.step],
-                       "proposal_event": p["n"], "quote": a.quote, "set": values})
+    # The decision file first, then the event (WP-C-004): a crash in between leaves a decision
+    # file that no confirm event backs, which the next confirm overwrites and done/check reject;
+    # never a committed confirm without its decision file.
+    n = len(run.st.events) + 1
     write_json(run.dir / run.wf.decision_path(a.step), {"confirm_event": n, "values": values})
+    run.st.append({"t": now(), "type": "confirm", "step": a.step, "round": run.rp.round[a.step],
+                   "proposal_event": p["n"], "quote": a.quote, "set": values})
     ok(run.st, n, f"next: wf done {run.dir} {a.step}")
 
 

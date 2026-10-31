@@ -5,6 +5,7 @@ import datetime
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -33,9 +34,11 @@ def utc():
 class Transcript:
     """Writes a Claude Code style session file as the simulated agent works."""
 
-    def __init__(self, path, cwd):
+    def __init__(self, path, cwd, opening=True):
         self.path, self.cwd, self.k = Path(path), str(cwd), 0
         self.lines = []
+        if not opening:
+            return
         early = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=2)
         self._add({"type": "user", "timestamp": early.isoformat().replace("+00:00", "Z"),
                    "message": {"role": "user", "content": "please run the mini workflow"}})
@@ -98,7 +101,7 @@ class WfCase(unittest.TestCase):
             rc = main([str(a) for a in args])
         text = out.getvalue() + err.getvalue()
         if self.tr is not None and args[0] not in ("check", "audit"):
-            self.tr.bash("wf " + " ".join(str(a) for a in args), text)
+            self.tr.bash("wf " + " ".join(shlex.quote(str(a)) for a in args), text)
         if expect is not None:
             self.assertEqual(rc, expect, f"wf {' '.join(map(str, args))} -> {rc}\n{text}")
         return text

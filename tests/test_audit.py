@@ -126,7 +126,7 @@ class Audit(WfCase):
         self.start()
         self.step_topic()
         first = list(self.tr.lines)
-        self.tr = Transcript(self.tmp / "resumed.jsonl", self.tmp)
+        self.tr = Transcript(self.tmp / "resumed.jsonl", self.tmp, opening=False)
         self.step_points()
         self.step_verify()
         (self.tmp / "first.jsonl").write_text("\n".join(json.dumps(x) for x in first) + "\n")
@@ -260,3 +260,275 @@ class CodexTranscript(WfCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# -- WP-C regression tests -----------------------------------------------------------------
+import os
+import shlex
+import subprocess
+import sys
+from pathlib import Path
+
+from helpers import ROOT, git
+
+WF_BIN = str(ROOT / "bin" / "wf")
+
+
+class Evidence(WfCase):
+    """WP-C-001: only a visible wf call with a matching ok line in its own result counts."""
+
+    def single_step(self):
+        w = json.loads((self.repo / "workflow.json").read_text())
+        w["steps"] = w["steps"][:1]
+        w["steps"][0]["gates"] = w["steps"][0]["gates"][:1]
+        (self.repo / "workflow.json").write_text(json.dumps(w))
+        git(self.repo, "commit", "-qam", "single step, no user gate")
+        self.start()
+        self.wf("begin", self.run, "topic")
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        self.wf("done", self.run, "topic")
+
+    def test_cached_ok_lines_are_not_evidence(self):
+        self.single_step()
+        markers = "\n".join(f"ok run={self.run.name} event={e['n']} {e['type']} {e.get('step', '')}".rstrip()
+                            for e in self.events())
+        cached = Transcript(self.tmp / "cat-only.jsonl", self.tmp)
+        cached.bash("cat cached-output.txt", markers)
+        rc, out = self.audit(cached.path)
+        self.assertEqual(rc, 1, out)
+        self.assertIn("does not visibly run wf", out)
+
+    def test_event_edited_to_another_step(self):
+        self.start()
+        self.full()
+        ev = self.events()
+        done_points = next(e for e in ev if e["type"] == "done" and e["step"] == "points")
+        done_points["step"] = "verify"
+        self.set_events(ev)
+        rc, out = self.audit()
+        self.assertEqual(rc, 1, out)
+
+    def test_confirm_set_differs_from_command(self):
+        self.start()
+        self.full()
+        ev = self.events()
+        c = next(e for e in ev if e["type"] == "confirm")
+        c["set"] = {"chosen": "cats"}
+        self.set_events(ev)
+        rc, out = self.audit()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("different from the command", out)
+
+    def test_successful_call_missing_from_log(self):
+        self.start()
+        self.full()
+        self.set_events(self.events()[:-1])          # drop the last done
+        rc, out = self.audit()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("log does not have", out)
+
+    def test_wrapped_batch_of_wf_calls_is_fine(self):
+        self.start()
+        self.step_topic()
+        self.put("steps/2-points.md", self.POINTS)
+        self.tr.lines.pop()
+        self.tr.lines.pop()                          # the write above happens inside the batch instead
+        target = self.run / "steps/2-points.md"
+        cmd = (f"{WF_BIN} begin {shlex.quote(str(self.run))} points && "
+               f"printf %s {shlex.quote(self.POINTS)} > {shlex.quote(str(target))} && "
+               f"{WF_BIN} done {shlex.quote(str(self.run))} points")
+        r = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.tr.bash(cmd, r.stdout + r.stderr)
+        rc, out = self.audit()
+        self.assertNotIn("violation", out)
+
+
+class OpaqueWrites(WfCase):
+    """WP-C-002: what audit cannot locate is a gap, never a silent PASS."""
+
+    def test_relative_script_in_run_folder(self):
+        self.start()
+        self.full()
+        self.tr.cwd = str(self.run)
+        self.tr.bash("python3 mutate.py", "")
+        rc, out = self.audit()
+        self.assertEqual(rc, 2, out)
+        self.assertIn("inside the run folder", out)
+
+    def test_script_with_variable_path_during_run(self):
+        self.start()
+        self.step_topic()
+        self.tr.bash('python3 tool.py "$TARGET"', "")
+        self.step_points()
+        self.step_verify()
+        rc, out = self.audit()
+        self.assertEqual(rc, 2, out)
+        self.assertIn("variables during the run", out)
+
+    def test_script_given_a_done_steps_file(self):
+        self.start()
+        self.full()
+        self.tr.bash(f"python3 fix.py {self.run}/steps/1-topic.json", "")
+        rc, out = self.audit()
+        self.assertEqual(rc, 2, out)
+        self.assertIn("a script was given this path", out)
+
+
+class Ordering(WfCase):
+    """WP-C-003: operations inside one call are ordered; unknown order is a gap."""
+
+    def test_real_batch_reopen_write_done(self):
+        w = json.loads((self.repo / "workflow.json").read_text())
+        w["steps"] = w["steps"][:1]
+        w["steps"][0]["gates"] = w["steps"][0]["gates"][:1]
+        (self.repo / "workflow.json").write_text(json.dumps(w))
+        git(self.repo, "commit", "-qam", "single step")
+        self.start()
+        self.wf("begin", self.run, "topic")
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        self.wf("done", self.run, "topic")
+        target = self.run / "steps/1-topic.json"
+        cmd = (f"{WF_BIN} reopen {shlex.quote(str(self.run))} topic --reason refresh && "
+               f"printf %s {shlex.quote(json.dumps({'options': ['cats', 'birds']}))} > {shlex.quote(str(target))} && "
+               f"{WF_BIN} done {shlex.quote(str(self.run))} topic")
+        r = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.tr.bash(cmd, r.stdout + r.stderr)
+        self.assertEqual(self.check()[0], 0)
+        rc, out = self.audit()
+        self.assertEqual(rc, 0, out)
+
+    def test_write_before_begin_in_one_batch_is_a_violation(self):
+        self.start()
+        target = self.run / "steps/1-topic.json"
+        cmd = (f"printf %s {shlex.quote(json.dumps({'options': ['a', 'b']}))} > {shlex.quote(str(target))} && "
+               f"{WF_BIN} begin {shlex.quote(str(self.run))} topic")
+        r = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
+        self.tr.bash(cmd, r.stdout + r.stderr)
+        rc, out = self.audit()
+        self.assertEqual(rc, 1, out)
+
+    def test_uncertain_order_is_a_gap(self):
+        self.start()
+        target = self.run / "steps/1-topic.json"
+        cmd = (f"for i in 1; do printf x > {shlex.quote(str(target))}; done; "
+               f"{WF_BIN} begin {shlex.quote(str(self.run))} topic")
+        r = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True)
+        self.tr.bash(cmd, r.stdout + r.stderr)
+        rc, out = self.audit()
+        self.assertEqual(rc, 2, out)
+        self.assertIn("order inside this call is uncertain", out)
+
+    def test_failed_write_tool_is_ignored(self):
+        self.start()
+        i = "toolu_fail"
+        self.tr._add({"type": "assistant", "message": {"role": "assistant", "content": [
+            {"type": "tool_use", "id": i, "name": "Write", "input": {"file_path": str(self.run / "steps/1-topic.json")}}]}})
+        self.tr._add({"type": "user", "message": {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": i, "is_error": True, "content": "permission denied"}]}})
+        self.full()
+        self.assertNotIn("violation", self.audit()[1])
+
+
+class Interruption(WfCase):
+    """WP-C-004: a crash inside a command leaves a run that can be resumed and audited."""
+
+    def prepare(self):
+        self.start()
+        self.wf("begin", self.run, "topic")
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        self.wf("propose", self.run, "topic")
+        self.tr.user("dogs")
+
+    def test_decision_write_fails(self):
+        import wf.cli as cli
+        self.prepare()
+        orig = cli.write_json
+
+        def fail(path, obj):
+            if str(path).endswith(".decision.json"):
+                raise OSError("injected")
+            return orig(path, obj)
+        cli.write_json = fail
+        try:
+            with self.assertRaises(OSError):
+                main(["confirm", str(self.run), "topic", "--quote", "dogs", "--set", "chosen=dogs"])
+        finally:
+            cli.write_json = orig
+        self.tr.bash("wf confirm " + shlex.quote(str(self.run)) + " topic --quote dogs --set chosen=dogs",
+                     "Traceback ... OSError: injected")
+        self.assertEqual(self.events()[-1]["type"], "propose", "no confirm committed")
+        self.wf("confirm", self.run, "topic", "--quote", "dogs", "--set", "chosen=dogs")
+        self.wf("done", self.run, "topic")
+        self.step_points()
+        self.step_verify()
+        self.assertEqual(self.check()[0], 0)
+        self.assertNotIn("violation", self.audit()[1])
+
+    def test_stale_decision_file_without_event(self):
+        self.prepare()
+        (self.run / "steps/1-topic.decision.json").write_text(json.dumps({"confirm_event": 4, "values": {"chosen": "x"}}))
+        self.wf("done", self.run, "topic", expect=1)          # no confirm event: refused
+        self.wf("confirm", self.run, "topic", "--quote", "dogs", "--set", "chosen=dogs")
+        self.wf("done", self.run, "topic")
+
+    def test_crash_after_commit_before_output(self):
+        import wf.cli as cli
+        self.prepare()
+        orig = cli.ok
+
+        def crash(*a, **k):
+            raise KeyboardInterrupt
+        cli.ok = crash
+        try:
+            with self.assertRaises(KeyboardInterrupt):
+                main(["confirm", str(self.run), "topic", "--quote", "dogs", "--set", "chosen=dogs"])
+        finally:
+            cli.ok = orig
+        self.tr.bash("wf confirm " + shlex.quote(str(self.run)) + " topic --quote dogs --set chosen=dogs",
+                     "^C KeyboardInterrupt")
+        self.assertEqual(self.events()[-1]["type"], "confirm", "committed before the crash")
+        self.wf("done", self.run, "topic")                    # resumes: the confirm is valid
+        self.step_points()
+        self.step_verify()
+        self.assertEqual(self.check()[0], 0)
+        rc, out = self.audit()
+        self.assertEqual(rc, 2, out)
+        self.assertIn("success was not shown", out)
+
+
+class TranscriptSets(WfCase):
+    def test_missing_middle_session(self):
+        self.start()
+        self.step_topic()
+        first = list(self.tr.lines)
+        self.tr = Transcript(self.tmp / "middle.jsonl", self.tmp, opening=False)
+        self.step_points()
+        self.tr = Transcript(self.tmp / "last.jsonl", self.tmp, opening=False)
+        self.step_verify()
+        (self.tmp / "first.jsonl").write_text("\n".join(json.dumps(x) for x in first) + "\n")
+        # in real sessions the middle one spans its own minutes; push its events out of the others' spans
+        ev = self.events()
+        for e in ev:
+            if e.get("step") == "points":
+                e["t"] = "2030-01-01T00:00:00+00:00"
+        self.set_events(ev)
+        rc, out = self.audit(self.tmp / "first.jsonl", self.tmp / "last.jsonl")
+        self.assertEqual(rc, 2, out)
+        self.assertIn("not covered", out)
+
+    def test_same_file_twice_and_repeated_lines(self):
+        self.start()
+        self.full()
+        for i, line in enumerate(self.tr.lines):
+            line["uuid"] = f"u{i}"
+        self.tr.path.write_text("\n".join(json.dumps(x) for x in self.tr.lines) + "\n")
+        resumed = self.tmp / "resumed.jsonl"
+        resumed.write_text(self.tr.path.read_text())          # a resume repeats the earlier lines
+        rc, out = self.audit(self.tr.path, self.tr.path, resumed)
+        self.assertNotIn("violation", out)
+        self.assertNotIn("reported twice", out)
+
+
+from wf.cli import main  # noqa: E402

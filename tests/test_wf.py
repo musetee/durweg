@@ -404,3 +404,43 @@ class Concurrency(WfCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CommandGate(WfCase):
+    def edit_gate(self, **kw):
+        w = json.loads((self.repo / "workflow.json").read_text())
+        w["steps"][2]["gates"][1].update(kw)
+        (self.repo / "workflow.json").write_text(json.dumps(w))
+
+    def to_verify(self):
+        self.step_topic()
+        self.step_points()
+        self.wf("begin", self.run, "verify")
+        self.put("evidence/a.txt", "x\n")
+        self.put("steps/3-verify.json", {"topic": "dogs", "checked": ["loyal", "loud", "fluffy"]})
+
+    def test_timeout(self):
+        (self.repo / "tools/verify_points.py").write_text("import time\ntime.sleep(5)\n")
+        self.edit_gate(timeout=1)
+        git(self.repo, "commit", "-qam", "slow gate")
+        self.start()
+        self.to_verify()
+        self.assertIn("timed out", self.wf("done", self.run, "verify", expect=1))
+
+    def test_cannot_start(self):
+        self.edit_gate(argv=["{wf}/tools/verify_points.py", "{run}"])   # not executable
+        git(self.repo, "commit", "-qam", "no interpreter")
+        self.start()
+        self.to_verify()
+        self.assertIn("could not start", self.wf("done", self.run, "verify", expect=1))
+
+
+class RunArgument(WfCase):
+    def test_changing_commands_need_run(self):
+        self.start()
+        for cmd in ("begin", "propose", "done"):
+            with self.assertRaises(SystemExit):
+                main([cmd, "topic"])
+
+
+from wf.cli import main  # noqa: E402
