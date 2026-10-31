@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -85,6 +86,10 @@ class Install(unittest.TestCase):
                          DURWEG_GUIDE="https://example.org/durweg/")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("教程：https://example.org/durweg/README_cn.md", r.stdout)
+        for _ in range(100):                     # the browser is opened in the background (V1-C-011)
+            if seen.exists() and seen.read_text():
+                break
+            time.sleep(0.05)
         self.assertEqual(seen.read_text(), "https://example.org/durweg/README_cn.md")
         seen.unlink()
         r = self.install(DURWEG_LANG="en", DURWEG_OPEN_CMD=str(opener))       # DURWEG_NO_START: no browser
