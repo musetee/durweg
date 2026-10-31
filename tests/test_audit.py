@@ -532,3 +532,108 @@ class TranscriptSets(WfCase):
 
 
 from wf.cli import main  # noqa: E402
+
+
+class Recheck(WfCase):
+    """WP-C second round: printed wf text is not a call; a redirect does not hide side effects."""
+
+    def single_step(self):
+        w = json.loads((self.repo / "workflow.json").read_text())
+        w["steps"] = w["steps"][:1]
+        w["steps"][0]["gates"] = w["steps"][0]["gates"][:1]
+        (self.repo / "workflow.json").write_text(json.dumps(w))
+        git(self.repo, "commit", "-qam", "single step")
+
+    def real(self, cmd, cwd=None):
+        env = dict(os.environ, PYTHONPATH=str(ROOT))
+        r = subprocess.run(["bash", "-c", cmd], capture_output=True, text=True, cwd=cwd, env=env)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        if cwd:
+            self.tr.cwd = str(cwd)
+        self.tr.bash(cmd, r.stdout + r.stderr)
+        self.tr.cwd = str(self.tmp)
+        return r.stdout
+
+    def test_echo_of_wf_text_with_cached_output(self):
+        self.single_step()
+        self.start()
+        outs = {"begin": self.wf("begin", self.run, "topic")}
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        outs["done"] = self.wf("done", self.run, "topic")
+        fake = Transcript(self.tmp / "echo.jsonl", self.tmp)
+        for sub, out in outs.items():
+            cache = self.tmp / f"cached-{sub}.txt"
+            cache.write_text(out)
+            fake.bash(f"echo wf {sub} {self.run} topic && cat {cache}", f"wf {sub} {self.run} topic\n{out}")
+        rc, out = self.audit(fake.path)
+        self.assertEqual(rc, 1, out)
+
+    def test_printf_and_quoted_wf_are_not_calls(self):
+        self.single_step()
+        self.start()
+        self.wf("begin", self.run, "topic")
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        out = self.wf("done", self.run, "topic", expect=None)
+        self.tr.lines = self.tr.lines[:-2]                # drop the real done call
+        self.tr.bash(f"printf '%s\\n' 'wf done {self.run} topic'; cat log", out)
+        rc, res = self.audit()
+        self.assertEqual(rc, 1, res)
+
+    def test_supported_wrappers_count(self):
+        self.single_step()
+        self.start()
+        q = shlex.quote(str(self.run))
+        self.real(f"env WF_X=1 {WF_BIN} begin {q} topic")
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        self.real(f"python3 -m wf.cli done {q} topic")
+        rc, out = self.audit()
+        self.assertEqual(rc, 0, out)
+
+    def test_python_path_to_wf_counts(self):
+        self.single_step()
+        self.start()
+        q = shlex.quote(str(self.run))
+        self.real(f"python3 {WF_BIN} begin {q} topic")
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        self.real(f"python3 {WF_BIN} done {q} topic")
+        self.assertEqual(self.audit()[0], 0)
+
+    def done_single(self):
+        self.single_step()
+        self.start()
+        self.wf("begin", self.run, "topic")
+        self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
+        self.wf("done", self.run, "topic")
+        (self.run / "mutate.py").write_text(
+            "from pathlib import Path\np=Path(__file__).parent/'steps/1-topic.json'\ns=p.read_text()\n"
+            "p.write_text('transient')\np.write_text(s)\nprint('ok')\n")
+
+    def test_risky_with_redirect_outside(self):
+        self.done_single()
+        self.real(f"python3 mutate.py > {self.tmp}/script.log", cwd=self.run)
+        rc, out = self.audit()
+        self.assertEqual(rc, 2, out)
+        self.assertIn("inside the run folder", out)
+
+    def test_risky_with_redirect_to_devnull(self):
+        self.done_single()
+        self.real("python3 mutate.py > /dev/null", cwd=self.run)
+        self.assertEqual(self.audit()[0], 2)
+
+    def test_risky_with_redirect_into_run_file(self):
+        self.done_single()
+        self.real(f"python3 {self.run}/mutate.py > {self.run}/notes.txt")
+        rc, out = self.audit()
+        self.assertEqual(rc, 2, out)
+
+    def test_heredoc_body_is_not_a_command(self):
+        self.done_single()
+        target = self.tmp / "notes.md"
+        self.real(f"cat > {target} <<'EOF'\npython3 runs {self.run.name} steps/ fix\nEOF")
+        rc, out = self.audit()
+        self.assertEqual(rc, 0, out)
+
+    def test_python_heredoc_on_run_is_a_gap(self):
+        self.done_single()
+        self.real(f"python3 - <<'EOF'\nprint(open('{self.run}/steps/1-topic.json').read())\nEOF")
+        self.assertEqual(self.audit()[0], 2)

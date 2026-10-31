@@ -195,39 +195,82 @@ def _tokens(seg):
         return seg.split()
 
 
-def parse_wf(toks):
-    """If the tokens are a wf invocation, return {sub, pos, quote, set}."""
-    for i, tok in enumerate(toks):
-        is_wf = os.path.basename(tok) == "wf" or (tok == "-m" and i + 1 < len(toks) and toks[i + 1] == "wf.cli")
-        if not is_wf:
-            continue
-        j = i + 2 if tok == "-m" else i + 1
-        if j >= len(toks) or toks[j] not in SUBS:
-            continue
-        rest, info = toks[j + 1:], {"sub": toks[j], "pos": [], "quote": None, "set": {}}
-        k = 0
-        while k < len(rest):
-            a = rest[k]
-            if a in ("--quote", "--reason", "--runs", "--agent", "--session") and k + 1 < len(rest):
-                if a == "--quote":
-                    info["quote"] = rest[k + 1]
-                k += 2
-                continue
-            if a == "--set" and k + 1 < len(rest):
-                key, _, val = rest[k + 1].partition("=")
-                info["set"][key] = val
-                k += 2
-                continue
-            if a.startswith("--quote="):
-                info["quote"] = a.split("=", 1)[1]
-            elif a.startswith("--set="):
-                key, _, val = a.split("=", 1)[1].partition("=")
-                info["set"][key] = val
-            elif not a.startswith("-"):
-                info["pos"].append(a)
-            k += 1
-        return info
+ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+
+
+def wf_position(toks):
+    """Index of the wf subcommand if the segment *executes* wf, else None (WP-C-001).
+
+    Supported: `wf …`, `/path/to/wf …`, `VAR=x wf …`, `env [VAR=x] wf …`,
+    `python3 -m wf.cli …`, `python3 /path/to/bin/wf …`. Text after echo, printf, in quotes or
+    in any other argument is not a call.
+    """
+    i = 0
+    while i < len(toks) and ASSIGN.match(toks[i]):
+        i += 1
+    if i < len(toks) and os.path.basename(toks[i]) == "env":
+        i += 1
+        while i < len(toks) and (ASSIGN.match(toks[i]) or toks[i].startswith("-")):
+            i += 1
+    if i >= len(toks):
+        return None
+    head = os.path.basename(toks[i])
+    if head == "wf":
+        return i + 1
+    if re.match(r"^python3?(\.\d+)?$", head):
+        if toks[i + 1:i + 3] == ["-m", "wf.cli"]:
+            return i + 3
+        if i + 1 < len(toks) and os.path.basename(toks[i + 1]) == "wf":
+            return i + 2
     return None
+
+
+def parse_wf(toks):
+    """If the tokens execute wf, return {sub, pos, quote, set}."""
+    j = wf_position(toks)
+    if j is None or j >= len(toks) or toks[j] not in SUBS:
+        return None
+    rest, info = toks[j + 1:], {"sub": toks[j], "pos": [], "quote": None, "set": {}}
+    k = 0
+    while k < len(rest):
+        a = rest[k]
+        if a in ("--quote", "--reason", "--runs", "--agent", "--session") and k + 1 < len(rest):
+            if a == "--quote":
+                info["quote"] = rest[k + 1]
+            k += 2
+            continue
+        if a == "--set" and k + 1 < len(rest):
+            key, _, val = rest[k + 1].partition("=")
+            info["set"][key] = val
+            k += 2
+            continue
+        if a.startswith("--quote="):
+            info["quote"] = a.split("=", 1)[1]
+        elif a.startswith("--set="):
+            key, _, val = a.split("=", 1)[1].partition("=")
+            info["set"][key] = val
+        elif not a.startswith("-"):
+            info["pos"].append(a)
+        k += 1
+    return info
+
+
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1")
+
+
+def strip_heredocs(cmd):
+    """Drop here-document bodies, so text inside them is not read as commands."""
+    out, lines, i = [], cmd.split("\n"), 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(line)
+        ends = [m.group(2) for m in HEREDOC.finditer(line)]
+        i += 1
+        for end in ends:
+            while i < len(lines) and lines[i].strip() != end:
+                i += 1
+            i += 1
+    return "\n".join(out)
 
 
 def _resolve(p, cwd):
@@ -247,7 +290,7 @@ def call_ops(call):
         if UNCERTAIN.search(cmd):
             uncertain = True
         here = cwd
-        for seg in _segments(cmd):
+        for seg in _segments(strip_heredocs(cmd)):
             toks = _tokens(seg)
             if toks and toks[0] == "cd" and len(toks) > 1:
                 here = _resolve(toks[1], here)
@@ -276,7 +319,8 @@ def call_ops(call):
                 for t in targets:
                     ops.append(("write", {"path": t, "cwd": here}))
                     found = True
-                if not found and not w and RISKY.search(seg):
+                # a recognised redirect says where stdout went, not what the program wrote (WP-C-002)
+                if not w and RISKY.search(seg):
                     paths = []
                     for x in toks[1:]:
                         x = x.split("=", 1)[1] if x.startswith("-") and "=" in x else x
