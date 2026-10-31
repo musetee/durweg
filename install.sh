@@ -81,7 +81,7 @@ mkdir -p "$HOME/.claude/skills"
 bash "$HERE/tools/install.sh" | sed 's/^/  /' || stop "Installing wf failed." "$AGAIN"
 rc="$HOME/.bashrc"
 grep -Fq '.local/bin' "$rc" 2>/dev/null || { printf '\nexport PATH="$HOME/.local/bin:$PATH"  # added by durweg\n' >> "$rc"; ok "Added ~/.local/bin to PATH in $rc"; }
-wf --help >/dev/null 2>&1 || stop "wf does not run." "$AGAIN"
+durweg --help >/dev/null 2>&1 || stop "durweg does not run." "$AGAIN"
 setup_skill="$HOME/.claude/skills/setup-agents"
 if [ -L "$setup_skill" ] && [ "$(readlink "$setup_skill")" = "$AIAGENTS_DIR/skills/setup-agents" ]; then :
 elif [ -e "$setup_skill" ] || [ -L "$setup_skill" ]; then
@@ -92,7 +92,7 @@ fi
 for s in run-workflow setup-agents; do
     [ -f "$HOME/.claude/skills/$s/SKILL.md" ] || stop "Claude cannot read the skill $s." "$AGAIN"
 done
-ok "wf, and the skills run-workflow and setup-agents for Claude Code"
+ok "durweg, and the skills run-workflow and setup-agents for Claude Code"
 
 # 6. Next
 mkdir -p "$RUNS"
@@ -100,6 +100,6 @@ echo
 say "Next: open a NEW terminal, run: claude"
 say "(the first start asks you to log in), and give it this text:"
 echo
-echo "    Run the Durweg setup workflow with wf: wf start $AIAGENTS_DIR setup --runs $RUNS"
+echo "    Run the Durweg setup workflow with durweg: durweg start $AIAGENTS_DIR setup --runs $RUNS"
 echo "    then follow the skill setup-agents ($AIAGENTS_DIR/skills/setup-agents/SKILL.md) step by step."
 echo

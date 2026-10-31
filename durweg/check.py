@@ -1,4 +1,4 @@
-"""wf check: offline re-verification of a whole run (design 3.3)."""
+"""durweg check: offline re-verification of a whole run (design 3.3)."""
 
 from . import gates, workflow
 from .state import RunState, replay

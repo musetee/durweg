@@ -104,7 +104,7 @@ class Audit(WfCase):
         self.set_events(ev)
         rc, out = self.audit()
         self.assertEqual(rc, 1, out)
-        self.assertIn("no successful wf call", out)
+        self.assertIn("no successful durweg call", out)
 
     def test_truncated_transcript_is_insufficient(self):
         self.start()
@@ -165,7 +165,7 @@ class Audit(WfCase):
         # simulate: a Write to the proposal between propose and done, then the file put back
         lines = self.tr.lines
         idx = max(i for i, l in enumerate(lines)
-                  if "wf done" in json.dumps(l) and "topic" in json.dumps(l) and l["type"] == "assistant")
+                  if "durweg done" in json.dumps(l) and "topic" in json.dumps(l) and l["type"] == "assistant")
         sneaky = {"type": "assistant", "timestamp": lines[idx]["timestamp"], "cwd": str(self.tmp),
                   "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "toolu_x",
                               "name": "Write", "input": {"file_path": str(self.run / "steps/1-topic.json")}}]}}
@@ -181,7 +181,7 @@ class Audit(WfCase):
         self.tr.write(self.run / "steps/1-topic.decision.json")
         rc, out = self.audit()
         self.assertEqual(rc, 1)
-        self.assertIn("outside `wf confirm`", out)
+        self.assertIn("outside `durweg confirm`", out)
 
     def test_state_edited_by_shell(self):
         self.start()
@@ -271,7 +271,7 @@ from pathlib import Path
 
 from helpers import ROOT, git
 
-WF_BIN = str(ROOT / "bin" / "wf")
+WF_BIN = str(ROOT / "bin" / "durweg")
 
 
 class Evidence(WfCase):
@@ -296,7 +296,7 @@ class Evidence(WfCase):
         cached.bash("cat cached-output.txt", markers)
         rc, out = self.audit(cached.path)
         self.assertEqual(rc, 1, out)
-        self.assertIn("does not visibly run wf", out)
+        self.assertIn("does not visibly run durweg", out)
 
     def test_event_edited_to_another_step(self):
         self.start()
@@ -442,7 +442,7 @@ class Interruption(WfCase):
         self.tr.user("dogs")
 
     def test_decision_write_fails(self):
-        import wf.cli as cli
+        import durweg.cli as cli
         self.prepare()
         orig = cli.write_json
 
@@ -456,7 +456,7 @@ class Interruption(WfCase):
                 main(["confirm", str(self.run), "topic", "--quote", "dogs", "--set", "chosen=dogs"])
         finally:
             cli.write_json = orig
-        self.tr.bash("wf confirm " + shlex.quote(str(self.run)) + " topic --quote dogs --set chosen=dogs",
+        self.tr.bash("durweg confirm " + shlex.quote(str(self.run)) + " topic --quote dogs --set chosen=dogs",
                      "Traceback ... OSError: injected")
         self.assertEqual(self.events()[-1]["type"], "propose", "no confirm committed")
         self.wf("confirm", self.run, "topic", "--quote", "dogs", "--set", "chosen=dogs")
@@ -474,7 +474,7 @@ class Interruption(WfCase):
         self.wf("done", self.run, "topic")
 
     def test_crash_after_commit_before_output(self):
-        import wf.cli as cli
+        import durweg.cli as cli
         self.prepare()
         orig = cli.ok
 
@@ -486,7 +486,7 @@ class Interruption(WfCase):
                 main(["confirm", str(self.run), "topic", "--quote", "dogs", "--set", "chosen=dogs"])
         finally:
             cli.ok = orig
-        self.tr.bash("wf confirm " + shlex.quote(str(self.run)) + " topic --quote dogs --set chosen=dogs",
+        self.tr.bash("durweg confirm " + shlex.quote(str(self.run)) + " topic --quote dogs --set chosen=dogs",
                      "^C KeyboardInterrupt")
         self.assertEqual(self.events()[-1]["type"], "confirm", "committed before the crash")
         self.wf("done", self.run, "topic")                    # resumes: the confirm is valid
@@ -531,7 +531,7 @@ class TranscriptSets(WfCase):
         self.assertNotIn("reported twice", out)
 
 
-from wf.cli import main  # noqa: E402
+from durweg.cli import main  # noqa: E402
 
 
 class Recheck(WfCase):
@@ -564,7 +564,7 @@ class Recheck(WfCase):
         for sub, out in outs.items():
             cache = self.tmp / f"cached-{sub}.txt"
             cache.write_text(out)
-            fake.bash(f"echo wf {sub} {self.run} topic && cat {cache}", f"wf {sub} {self.run} topic\n{out}")
+            fake.bash(f"echo durweg {sub} {self.run} topic && cat {cache}", f"durweg {sub} {self.run} topic\n{out}")
         rc, out = self.audit(fake.path)
         self.assertEqual(rc, 1, out)
 
@@ -575,7 +575,7 @@ class Recheck(WfCase):
         self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
         out = self.wf("done", self.run, "topic", expect=None)
         self.tr.lines = self.tr.lines[:-2]                # drop the real done call
-        self.tr.bash(f"printf '%s\\n' 'wf done {self.run} topic'; cat log", out)
+        self.tr.bash(f"printf '%s\\n' 'durweg done {self.run} topic'; cat log", out)
         rc, res = self.audit()
         self.assertEqual(rc, 1, res)
 
@@ -585,7 +585,7 @@ class Recheck(WfCase):
         q = shlex.quote(str(self.run))
         self.real(f"env WF_X=1 {WF_BIN} begin {q} topic")
         self.put("steps/1-topic.json", {"options": ["cats", "dogs"]})
-        self.real(f"python3 -m wf.cli done {q} topic")
+        self.real(f"python3 -m durweg.cli done {q} topic")
         rc, out = self.audit()
         self.assertEqual(rc, 0, out)
 
@@ -658,15 +658,15 @@ class Quoting(WfCase):
         return self.audit(fake.path)
 
     def test_single_quoted_semicolon(self):
-        rc, out = self.cached(lambda s: f"echo 'example; wf {s} {self.run} topic;' && cat cache")
+        rc, out = self.cached(lambda s: f"echo 'example; durweg {s} {self.run} topic;' && cat cache")
         self.assertEqual(rc, 1, out)
 
     def test_double_quoted_and_escaped(self):
-        rc, out = self.cached(lambda s: f'echo "x && wf {s} {self.run} topic" \\; wf\\ {s} && cat cache')
+        rc, out = self.cached(lambda s: f'echo "x && durweg {s} {self.run} topic" \\; durweg\\ {s} && cat cache')
         self.assertEqual(rc, 1, out)
 
     def test_unbalanced_quote_is_a_gap_not_evidence(self):
-        rc, out = self.cached(lambda s: f"echo 'oops; wf {s} {self.run} topic")
+        rc, out = self.cached(lambda s: f"echo 'oops; durweg {s} {self.run} topic")
         self.assertNotEqual(rc, 0, out)       # never PASS: no evidence for the events
         self.assertIn("outside the shell subset", out)
 
@@ -701,29 +701,29 @@ class Subset(WfCase):
         return Quoting.cached(self, render)
 
     def test_comment_hides_wf(self):
-        rc, out = self.cached(lambda s: f"echo example # ; wf {s} {self.run} topic;\ncat cache")
+        rc, out = self.cached(lambda s: f"echo example # ; durweg {s} {self.run} topic;\ncat cache")
         self.assertNotEqual(rc, 0, out)
         self.assertIn("outside the shell subset", out)
 
     def test_command_substitution(self):
-        rc, out = self.cached(lambda s: f"echo $(wf {s} {self.run} topic); cat cache")
+        rc, out = self.cached(lambda s: f"echo $(durweg {s} {self.run} topic); cat cache")
         self.assertNotEqual(rc, 0, out)
 
     def test_group_and_background(self):
-        for render in (lambda s: f"{{ wf {s} {self.run} topic; }}; cat cache",
-                       lambda s: f"(wf {s} {self.run} topic) && cat cache",
-                       lambda s: f"wf {s} {self.run} topic & cat cache"):
+        for render in (lambda s: f"{{ durweg {s} {self.run} topic; }}; cat cache",
+                       lambda s: f"(durweg {s} {self.run} topic) && cat cache",
+                       lambda s: f"durweg {s} {self.run} topic & cat cache"):
             self.tearDown()
             self.setUp()
             rc, out = self.cached(render)
             self.assertNotEqual(rc, 0, out)
 
     def test_hash_inside_a_word_is_not_a_comment(self):
-        from wf.audit import _segments
-        self.assertEqual(_segments("echo a#b; wf begin R s"), ["echo a#b", " wf begin R s"])
-        self.assertIsNone(_segments("echo a #b; wf begin R s"))
-        self.assertIsNone(_segments("if true; then wf begin R s; fi"))
-        self.assertEqual(_segments("wf done R s 2>&1 | tail -3"), ["wf done R s 2>&1 ", " tail -3"])
+        from durweg.audit import _segments
+        self.assertEqual(_segments("echo a#b; durweg begin R s"), ["echo a#b", " durweg begin R s"])
+        self.assertIsNone(_segments("echo a #b; durweg begin R s"))
+        self.assertIsNone(_segments("if true; then durweg begin R s; fi"))
+        self.assertEqual(_segments("durweg done R s 2>&1 | tail -3"), ["durweg done R s 2>&1 ", " tail -3"])
 
     def test_unreadable_command_far_away_does_not_hide_a_missing_event(self):
         import datetime
@@ -735,12 +735,12 @@ class Subset(WfCase):
         later = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=10))
         stamp = later.isoformat().replace("+00:00", "Z")
         self.tr._add({"type": "assistant", "timestamp": stamp, "message": {"role": "assistant", "content": [
-            {"type": "tool_use", "id": "toolu_late", "name": "Bash", "input": {"command": "echo x # wf"}}]}})
+            {"type": "tool_use", "id": "toolu_late", "name": "Bash", "input": {"command": "echo x # durweg"}}]}})
         self.tr._add({"type": "user", "timestamp": stamp, "message": {"role": "user", "content": [
             {"type": "tool_result", "tool_use_id": "toolu_late", "content": "x"}]}})
         rc, out = self.audit()
         self.assertEqual(rc, 1, out)
-        self.assertIn("no successful wf call", out)
+        self.assertIn("no successful durweg call", out)
 
 
 class EnvWrapper(WfCase):
@@ -750,15 +750,15 @@ class EnvWrapper(WfCase):
         return Quoting.cached(self, render)
 
     def test_env_help_is_not_a_call(self):
-        rc, out = self.cached(lambda s: f"env --help wf {s} {self.run} topic && cat cache")
+        rc, out = self.cached(lambda s: f"env --help durweg {s} {self.run} topic && cat cache")
         self.assertNotEqual(rc, 0, out)
         self.assertIn("outside the shell subset", out)
 
     def test_env_version_and_other_wrappers(self):
-        for render in (lambda s: f"env --version wf {s} {self.run} topic && cat cache",
-                       lambda s: f"env -i wf {s} {self.run} topic && cat cache",
-                       lambda s: f"timeout 5 wf {s} {self.run} topic && cat cache",
-                       lambda s: f"python3 -I wf {s} {self.run} topic && cat cache"):
+        for render in (lambda s: f"env --version durweg {s} {self.run} topic && cat cache",
+                       lambda s: f"env -i durweg {s} {self.run} topic && cat cache",
+                       lambda s: f"timeout 5 durweg {s} {self.run} topic && cat cache",
+                       lambda s: f"python3 -I durweg {s} {self.run} topic && cat cache"):
             self.tearDown()
             self.setUp()
             rc, out = self.cached(render)
@@ -783,10 +783,10 @@ class EnvWrapper(WfCase):
         self.assertEqual(rc, 0, out)
 
     def test_wf_position_table(self):
-        from wf.audit import wf_position, UNSUPPORTED
-        cases = {"wf begin R s": 1, "/x/bin/wf begin R s": 1, "A=1 wf begin": 2, "env A=1 wf begin": 3,
-                 "python3 -m wf.cli begin": 3, "python3 /x/bin/wf begin": 2, "echo wf begin": None,
-                 "printf %s wf": None, "env --help wf begin": UNSUPPORTED, "env -u A wf begin": UNSUPPORTED,
-                 "nice wf begin": UNSUPPORTED, "python3 -I /x/wf begin": UNSUPPORTED, "env --help": None}
+        from durweg.audit import wf_position, UNSUPPORTED
+        cases = {"durweg begin R s": 1, "/x/bin/durweg begin R s": 1, "A=1 durweg begin": 2, "env A=1 durweg begin": 3,
+                 "python3 -m durweg.cli begin": 3, "python3 /x/bin/durweg begin": 2, "echo durweg begin": None,
+                 "printf %s durweg": None, "env --help durweg begin": UNSUPPORTED, "env -u A durweg begin": UNSUPPORTED,
+                 "nice durweg begin": UNSUPPORTED, "python3 -I /x/durweg begin": UNSUPPORTED, "env --help": None}
         for cmd, want in cases.items():
             self.assertEqual(wf_position(cmd.split()), want, cmd)

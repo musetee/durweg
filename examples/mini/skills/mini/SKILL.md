@@ -1,6 +1,6 @@
 ---
 name: mini
-description: A minimal example workflow for wf - pick a topic with the user, list points, check them.
+description: A minimal example workflow for Durweg - pick a topic with the user, list points, check them.
 ---
 
 # mini

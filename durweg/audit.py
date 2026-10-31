@@ -6,7 +6,7 @@ stable id; a person clears them in <run>/audit-notes.md (`## G-xxxxxxxx` + what 
 Evidence model (WP-C-001..004):
 - A transcript tool call is split into ordered operations: visible `wf` invocations, recognised
   writes, and risky commands. Each operation gets a position inside its call, so a batch like
-  `wf reopen … && printf … > file && wf done …` is ordered by its parts.
+  `durweg reopen … && printf … > file && wf done …` is ordered by its parts.
 - An event counts as executed only when a visible `wf` invocation of the same command, step and
   run (and, for confirm, the same quote and --set values) has an `ok run=<id> event=<n> <type> <step>`
   line in the result of *that* call. `ok` lines anywhere else are not evidence.
@@ -284,15 +284,15 @@ WRAPPERS = {"nice", "nohup", "timeout", "sudo", "command", "exec", "stdbuf", "xa
 
 
 def _names_wf(tok):
-    return os.path.basename(tok) == "wf" or tok == "wf.cli"
+    return os.path.basename(tok) == "durweg" or tok in ("durweg.cli", "durweg")
 
 
 def wf_position(toks):
     """Index of the wf subcommand if the segment *executes* wf; None if it does not;
     UNSUPPORTED if wf appears behind a wrapper form audit does not read (WP-C-001).
 
-    Supported: `wf …`, `/path/to/wf …`, `VAR=x wf …`, `env VAR=x … wf …` (assignments only),
-    `python3 -m wf.cli …`, `python3 /path/to/bin/wf …`. echo/printf text and other arguments are
+    Supported: `durweg …`, `/path/to/wf …`, `VAR=x wf …`, `env VAR=x … wf …` (assignments only),
+    `python3 -m durweg.cli …`, `python3 /path/to/bin/wf …`. echo/printf text and other arguments are
     not calls. env with options, other wrappers (nice, timeout, sudo, …) and python with options
     in front of wf are unsupported: never evidence, a gap instead.
     """
@@ -309,12 +309,12 @@ def wf_position(toks):
     if i >= len(toks):
         return None
     head = os.path.basename(toks[i])
-    if head == "wf":
+    if head == "durweg":
         return i + 1
     if re.match(r"^python3?(\.\d+)?$", head):
-        if toks[i + 1:i + 3] == ["-m", "wf.cli"]:
+        if toks[i + 1:i + 3] in (["-m", "durweg.cli"], ["-m", "durweg"]):
             return i + 3
-        if i + 1 < len(toks) and os.path.basename(toks[i + 1]) == "wf":
+        if i + 1 < len(toks) and os.path.basename(toks[i + 1]) == "durweg":
             return i + 2
         return UNSUPPORTED if later_wf else None
     if head in WRAPPERS and later_wf:
@@ -494,7 +494,7 @@ class Audit:
                 self.ops.append((it["pos"] + (k + 1) / 1000.0, kind, data, it, res))
                 if kind == "wf":
                     self.wf_calls.add(it.get("id"))
-                if kind == "unparsed" and (re.search(r"\bwf\b", data["cmd"]) or self.mentions_run(data["cmd"])):
+                if kind == "unparsed" and (re.search(r"\bdurweg\b", data["cmd"]) or self.mentions_run(data["cmd"])):
                     self.unparsed_wf.append((it["t"], (res or {}).get("t") or it["t"]))
 
     # 2. event evidence, both ways
@@ -525,7 +525,7 @@ class Audit:
             ev = events.get(n)
             where = f"transcript item {call['pos']}"
             if ev is None or ev["type"] != data["sub"] or ev.get("step") != (hit.group(4) or None) and data["sub"] != "start":
-                self.violations.append(f"{where}: a successful `wf {data['sub']}` reported event {n}, which the "
+                self.violations.append(f"{where}: a successful `durweg {data['sub']}` reported event {n}, which the "
                                        f"log does not have in that form")
                 continue
             if ev["type"] == "confirm" and (data["quote"] != ev.get("quote") or data["set"] != ev.get("set", {})):
@@ -541,30 +541,30 @@ class Audit:
                 self.violations.append(f"{where}: event {n} reported twice")
                 continue
             self.pos[n] = pos
-        # ok lines in the output of calls that do not visibly run wf are not evidence
+        # ok lines in the output of calls that do not visibly run durweg are not evidence
         for it in self.stream.items:
             if it["kind"] == "result" and it.get("id") not in self.wf_calls and \
                     any(m.group(1) == self.st.id for m in OK_LINE.finditer(it["text"])):
                 self.gaps.append(f"transcript item {it['pos']}: output shows `ok run={self.st.id}` lines but its "
-                                 f"call does not visibly run wf (cached output or a wrapper script)")
+                                 f"call does not visibly run durweg (cached output or a wrapper script)")
         slack = datetime.timedelta(seconds=1)
         for ev in self.st.events:
             if ev["type"] not in CHANGING or ev["n"] in self.pos:
                 continue
             what = f"event {ev['n']} ({ev['type']} {ev.get('step', '')}, {ev.get('t')})"
             if (ev["type"], ev.get("step")) in ran_unshown:
-                self.gaps.append(f"{what}: a matching wf command ran but its success was not shown "
+                self.gaps.append(f"{what}: a matching durweg command ran but its success was not shown "
                                  f"(interrupted?); check the output of that call")
                 continue
             t = _ts(ev.get("t"))
             if t and any(a and b and a - slack <= t <= b + slack for a, b in self.unparsed_wf):
-                self.gaps.append(f"{what}: no readable wf call; it may be inside a command audit cannot "
+                self.gaps.append(f"{what}: no readable durweg call; it may be inside a command audit cannot "
                                  f"read (listed as a gap)")
                 continue
             t = _ts(ev.get("t"))
             covered = [f for f, a, b in self.stream.spans if a and b and t and a - slack <= t <= b + slack]
             if covered:
-                self.violations.append(f"{what}: no successful wf call in {covered[0]}, which covers that time")
+                self.violations.append(f"{what}: no successful durweg call in {covered[0]}, which covers that time")
             else:
                 self.gaps.append(f"{what}: not covered by the given transcripts")
         seen = sorted(self.pos.items())
@@ -613,7 +613,7 @@ class Audit:
                 self._risky(pos, data, call, lifetime)
             elif kind == "unparsed":
                 cwd_in = bool(call.get("cwd")) and self.in_run(".", call.get("cwd"))[0]
-                if self.mentions_run(data["cmd"]) or re.search(r"\bwf\b", data["cmd"]) or cwd_in \
+                if self.mentions_run(data["cmd"]) or re.search(r"\bdurweg\b", data["cmd"]) or cwd_in \
                         or "steps/" in data["cmd"] or ".wf" in data["cmd"]:
                     self.gaps.append(f"command outside the shell subset audit reads (comments, $( ), "
                                      f"groups, loops, background, unbalanced quotes); check it by hand: "
@@ -663,7 +663,7 @@ class Audit:
         if rel.startswith(".wf" + os.sep) or rel == ".wf":
             found.append(f"{rel} written outside wf")
         elif any(rel == self.wf.decision_path(s) for s in self.wf.order):
-            found.append(f"{rel}: the decision file was written outside `wf confirm`")
+            found.append(f"{rel}: the decision file was written outside `durweg confirm`")
         else:
             owned = False
             for sid in self.wf.order:

@@ -1,6 +1,6 @@
 """The run's event log (.wf/state.json) and the state machine that replays it.
 
-Statuses are never stored: they are always derived by replaying the events, so `wf check`
+Statuses are never stored: they are always derived by replaying the events, so `durweg check`
 validates exactly the transitions the commands enforce (design 3.1).
 """
 
@@ -36,7 +36,7 @@ class Replay:
         st = self.status[s]
         if t == "begin":
             if st != "pending":
-                return (f"step {s} is {st}; a done step is redone only with `wf reopen`"
+                return (f"step {s} is {st}; a done step is redone only with `durweg reopen`"
                         if st == "done" else f"step {s} is already active")
             if self.active:
                 return f"step {self.active} is active; finish it (done) first"
@@ -53,7 +53,7 @@ class Replay:
                 return f"step {s} has no user gate"
             p = self.propose.get(s)
             if not p:
-                return f"step {s}: no `wf propose` in this round; propose, show it to the user, then confirm"
+                return f"step {s}: no `durweg propose` in this round; propose, show it to the user, then confirm"
             if ev.get("proposal_event") != p["n"]:
                 return f"step {s}: confirm must bind the latest proposal (event {p['n']})"
             return None

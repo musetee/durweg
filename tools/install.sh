@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install the workflow platform on this computer, wherever it was cloned:
-#   bash tools/install.sh            link ~/.local/bin/wf and the skill run-workflow into each agent
+#   bash tools/install.sh            link ~/.local/bin/durweg and the skill run-workflow into each agent
 #   bash tools/install.sh --remove   remove the links this script made
 # Claude Code reads ~/.claude/skills, Codex ${CODEX_HOME:-~/.codex}/skills, Antigravity
 # ~/.gemini/config/skills. Links, not copies: `git pull` here updates every agent.
@@ -22,7 +22,12 @@ link() {   # link <target> <link path>
     else ln -s "$src" "$dst"; echo "[OK] $dst -> $src"; fi
 }
 
-link "$WP/bin/wf" "$HOME/.local/bin/wf"
+link "$WP/bin/durweg" "$HOME/.local/bin/durweg"
+# the command was called wf before v1: remove that link only when it is ours
+old="$HOME/.local/bin/wf"
+if [ -L "$old" ] && case "$(readlink "$old")" in "$WP"/bin/wf|*/durweg/bin/wf|*/workflow-platform/bin/wf) true;; *) false;; esac; then
+    rm "$old"; echo "[OK] removed the old command $old (now: durweg)"
+fi
 for dir in "$HOME/.claude/skills" "${CODEX_HOME:-$HOME/.codex}/skills" "$HOME/.gemini/config/skills"; do
     [ -d "$(dirname "$dir")" ] || continue          # that agent is not installed
     link "$WP/skills/run-workflow" "$dir/run-workflow"

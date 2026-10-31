@@ -92,9 +92,9 @@ class Bootstrap(unittest.TestCase):
         out = self.run_install()
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertEqual(git(self.home / "aiagents", "rev-parse", "HEAD"), self.commit, "fixed commit, not the branch tip")
-        self.assertTrue((self.home / ".local/bin/wf").is_symlink())
+        self.assertTrue((self.home / ".local/bin/durweg").is_symlink())
         self.assertTrue((self.home / "durweg-runs").is_dir())
-        self.assertIn("wf start", out.stdout)
+        self.assertIn("durweg start", out.stdout)
         self.assertEqual(self.calls().count("claude-installer"), 1)
         skills = self.home / ".claude/skills"          # DS-C-001: fresh HOME, no config folder before
         for s in ("run-workflow", "setup-agents"):

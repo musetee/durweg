@@ -24,7 +24,7 @@ Both repositories are private: your GitHub account needs access to `musetee/durw
    ```bash
    gh auth login --hostname github.com --git-protocol https --web && gh auth setup-git
    ```
-4. Get Durweg and run its installer. It checks your access, installs Python, `wf`, Claude Code and
+4. Get Durweg and run its installer. It checks your access, installs Python, `durweg`, Claude Code and
    the setup workflow, and stops with a message if anything is missing:
    ```bash
    gh repo clone musetee/durweg ~/durweg && bash ~/durweg/install.sh
@@ -35,19 +35,19 @@ Both repositories are private: your GitHub account needs access to `musetee/durw
 The workflow then asks you three things on the way: which agents to install (Claude Code and Codex
 by default), to log in to Codex, and to open herdr with both agents and continue there (it gives you
 the exact text). Done looks like this: you see Claude send a test message to Codex and Codex answer
-it, and `wf check` prints `PASS`.
+it, and `durweg check` prints `PASS`.
 
 ## Every day
 
-Tell an agent which workflow to run: "Run the workflow `<folder>` with wf." It starts a run with
-`wf start <folder> <name>`, goes step by step, and asks you where the workflow says so. To see where
-a run stands: `wf status <run folder>`.
+Tell an agent which workflow to run: "Run the workflow `<folder>` with durweg." It starts a run with
+`durweg start <folder> <name>`, goes step by step, and asks you where the workflow says so. To see where
+a run stands: `durweg status <run folder>`.
 
 ## Where your files are
 
 Each run is a folder: the setup workflow's is under `~/durweg-runs/`; other runs are under
 `runs/` in the project folder you started them from. In a run folder, `steps/` holds what each step
-wrote, `evidence/` what was saved as proof, `run.md` a readable summary (`wf render <run>`), and
+wrote, `evidence/` what was saved as proof, `run.md` a readable summary (`durweg render <run>`), and
 `.wf/` the event log and the locked copy of the workflow (do not edit it).
 
 ## Example: the mini workflow
@@ -55,15 +55,15 @@ wrote, `evidence/` what was saved as proof, `run.md` a readable summary (`wf ren
 This shows a whole run of the three-step example in [`examples/mini`](examples/mini): you pick a
 topic, the agent lists points and checks them. It makes a run folder under `runs/`.
 
-1. In a project folder, tell the agent: "Run the workflow `~/durweg/examples/mini` with wf."
+1. In a project folder, tell the agent: "Run the workflow `~/durweg/examples/mini` with durweg."
 2. At step 1 it shows you two or three topics and asks; answer in your own words.
-3. When it is finished it runs `wf check runs/<date>_<name>` and reports `PASS` or what is missing.
+3. When it is finished it runs `durweg check runs/<date>_<name>` and reports `PASS` or what is missing.
 
 ## What you can do
 
 - Write your own workflow: [docs/workflow-format.md](docs/workflow-format.md).
-- See what an agent did, step by step: `wf status <run>`, `wf render <run>`.
-- Check a finished run: `wf check <run>`.
+- See what an agent did, step by step: `durweg status <run>`, `durweg render <run>`.
+- Check a finished run: `durweg check <run>`.
 
 ## Tests
 

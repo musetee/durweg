@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from wf.cli import main  # noqa: E402
+from durweg.cli import main  # noqa: E402
 
 EXAMPLE = ROOT / "examples" / "mini"
 
@@ -101,7 +101,7 @@ class WfCase(unittest.TestCase):
             rc = main([str(a) for a in args])
         text = out.getvalue() + err.getvalue()
         if self.tr is not None and args[0] not in ("check", "audit"):
-            self.tr.bash("wf " + " ".join(shlex.quote(str(a)) for a in args), text)
+            self.tr.bash("durweg " + " ".join(shlex.quote(str(a)) for a in args), text)
         if expect is not None:
             self.assertEqual(rc, expect, f"wf {' '.join(map(str, args))} -> {rc}\n{text}")
         return text

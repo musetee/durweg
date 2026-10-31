@@ -216,7 +216,7 @@ def gate_user(run_dir, g, ctx):
         return [f"step {sid}: no user confirmation bound to the latest proposal in this round"]
     errs = []
     if proposal_digest(run_dir, wf, sid) != p["proposal_digest"]:
-        errs.append(f"step {sid}: the proposal changed after `wf propose` (event {p['n']}); "
+        errs.append(f"step {sid}: the proposal changed after `durweg propose` (event {p['n']}); "
                     f"propose again, show it to the user and confirm")
     dec = Path(run_dir) / wf.decision_path(sid)
     want = {"confirm_event": c["n"], "values": c.get("set", {})}
@@ -226,7 +226,7 @@ def gate_user(run_dir, g, ctx):
         have = None
     if have != want:
         errs.append(f"{wf.decision_path(sid)}: does not match confirm event {c['n']} "
-                    f"(the decision file is written only by `wf confirm`)")
+                    f"(the decision file is written only by `durweg confirm`)")
     return errs
 
 

@@ -443,4 +443,4 @@ class RunArgument(WfCase):
                 main([cmd, "topic"])
 
 
-from wf.cli import main  # noqa: E402
+from durweg.cli import main  # noqa: E402
