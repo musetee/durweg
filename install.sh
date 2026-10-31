@@ -169,15 +169,19 @@ if [ -z "$agents" ]; then
     choice="${DURWEG_AGENT:-}"
     if [ -z "$choice" ]; then
         say "No AI agent found. Which one should be installed?" "没有找到 AI agent。要装哪一个？"
-        printf '  1) Claude Code\n  2) Codex\n'
-        case "$(ask "[1]:" "[1]：" 1)" in 2*) choice=codex ;; *) choice=claude ;; esac
+        printf '  1) Claude Code\n  2) Codex\n  3) %s\n' "$(t "I already have one and start it my own way (install nothing new)" \
+                                                       "我已经装了，平时用自己的方式启动它（不装新的）")"
+        case "$(ask "[1]:" "[1]：" 1)" in 2*) choice=codex ;; 3*) choice=own ;; *) choice=claude ;; esac
     fi
+    # an agent started from its own place (not on PATH) still reads its skills from its settings
+    # folder: give both agents the skills and let the user start theirs as usual
+    own=''; [ "$choice" = own ] && { own=1; choice=skip; agents=" claude codex"; }
     case "$choice" in
         claude) curl -fsSL https://claude.ai/install.sh | bash || stop "Installing Claude Code failed." "安装 Claude Code 失败。" ;;
         codex)  curl -fsSL https://chatgpt.com/codex/install.sh | sh || stop "Installing Codex failed." "安装 Codex 失败。" ;;
     esac
     hash -r 2>/dev/null || true
-    if [ "$choice" != skip ]; then
+    if [ "$choice" != skip ] && [ -z "$own" ]; then
         runs_ok "$choice" || stop "$choice was installed but does not run; open a new terminal and try again." \
                                   "$choice 装好了但运行不了；请打开一个新终端再试。"
         agents=" $choice"
@@ -234,6 +238,11 @@ first="$(t "Please talk to me in English. Use durweg to run the example write-yo
 agent="${agents# }"; agent="${agent%% *}"
 echo
 say "Durweg is installed." "Durweg 装好了。"
+if [ -n "${own:-}" ]; then
+    say "Next: start your agent the way you always do, and tell it:" "下一步：照你平常的方式启动 agent，然后对它说："
+    printf '    %s\n' "$first"
+    exit 0
+fi
 if [ -n "$agent" ] && [ -z "${DURWEG_NO_START:-}" ] && [ -n "$TTY" ] && has "$agent"; then
     say "Starting $agent with the first example (it may ask you to log in first)..." \
         "正在启动 ${agent}，带你做第一个示例（第一次可能会先让你登录）……"

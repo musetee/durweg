@@ -76,6 +76,7 @@ agent 告诉你检查结果是 `PASS`，并且“列出我的 durweg 工作流�
 
 - **Windows 10：在安装窗口里登录不了 Claude。** 改在 Windows Terminal 里运行安装程序：打开一个命令提示符标签页，把 `Durweg-Install.bat` 拖进去，按回车（[详细步骤](docs/troubleshooting_cn.md#windows-10在安装窗口里登录不了-claude)）。
 - **装好 Durweg 以后才装了另一个 agent（比如先有 Codex，后装 Claude Code）：** 新装的 agent 还不会用 Durweg。再运行一次安装程序，问要不要修改时按回车，它会给电脑上所有的 agent 都装上 Durweg。
+- **agent 已经装了，安装程序却说没有找到：** 你的 agent 不在系统能直接找到的位置（比如要用一个脚本启动）。在“要装哪一个”时选 **3**：Durweg 会装好给 Claude Code 和 Codex 用的部分，你照平常的方式启动 agent，对它说“用 durweg 运行 write-your-method”。
 
 ## 💬 安装时会遇到的提问
 
@@ -86,7 +87,7 @@ agent 告诉你检查结果是 `PASS`，并且“列出我的 durweg 工作流�
 | **还没有 WSL** | • 同意管理员授权，重启电脑<br>• 从开始菜单打开一次 "Ubuntu"，设好 Linux 用户名和密码<br>• 再双击一次安装程序；之前的选择它都记着 |
 | **“Windows 已保护你的电脑”** | 点 **更多信息 → 仍要运行** |
 | **macOS 拦下了安装程序** | • 打开“系统设置 → 隐私与安全性”，点允许<br>• macOS 先装开发者工具的话，等它装完再双击一次 |
-| **装 Claude Code 还是 Codex** | • 只在电脑上还没有 agent 时才问；直接回车装 Claude Code<br>• 装好以后在浏览器里登录一次 |
+| **装 Claude Code 还是 Codex** | • 只在电脑上找不到 agent 时才问；直接回车装 Claude Code，装好以后在浏览器里登录一次<br>• 已经装了 agent、平时用自己的方式（比如一个脚本）启动它：选 **3**，不装新的 |
 | **再次运行时问要不要修改** | • 回车：沿用上次的选择（更新或修复）<br>• 输入 `c`：重新选择，重新安装 |
 
 ---

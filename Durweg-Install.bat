@@ -296,9 +296,13 @@ if ($agents.Count -eq 0) {
     if (-not $choice) {
         Say 'No AI agent found. Which one should be installed?' '没有找到 AI agent。要装哪一个？'
         Write-Host '  1) Claude Code'; Write-Host '  2) Codex'
+        Write-Host ('  3) ' + (T 'I already have one and start it my own way (install nothing new)' '我已经装了，平时用自己的方式启动它（不装新的）'))
         $a = Read-Host '  [1]'
-        $choice = if ($a -like '2*') { 'codex' } else { 'claude' }
+        $choice = if ($a -like '2*') { 'codex' } elseif ($a -like '3*') { 'own' } else { 'claude' }
     }
+    # an agent started from its own place (not on PATH) still reads its skills from its settings
+    # folder: give both agents the skills and let the user start theirs as usual
+    if ($choice -eq 'own') { $agents = @('claude', 'codex'); $own = $true; $choice = 'skip' }
     try {
         if ($choice -eq 'claude') { Invoke-RestMethod https://claude.ai/install.ps1 | Invoke-Expression; Refresh-Path; $env:Path = "$BinDir;$env:Path" }
         elseif ($choice -eq 'codex') {
@@ -310,7 +314,7 @@ if ($agents.Count -eq 0) {
             if ($LASTEXITCODE -ne 0) { throw "npm exit $LASTEXITCODE" }
         }
     } catch { Stop-Install "Installing $choice failed." "安装 $choice 失败。" }
-    if ($choice -ne 'skip') {
+    if ($choice -ne 'skip' -and $choice -ne $null) {
         Refresh-Path; $env:Path = "$BinDir;$env:Path;$(Join-Path $HOME '.local\bin')"
         if (-not (Test-Agent $choice)) { Stop-Install "$choice was installed but does not run; open a new window and try again." "$choice 装好了但运行不了；请打开一个新窗口再试。" }
         $agents += $choice
@@ -318,7 +322,8 @@ if ($agents.Count -eq 0) {
 }
 $skills = @()
 foreach ($a in $agents) {
-    $dir = if ($a -eq 'claude') { Join-Path $HOME '.claude\skills' } else { Join-Path $HOME '.codex\skills' }
+    $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME '.codex' }
+    $dir = if ($a -eq 'claude') { Join-Path $HOME '.claude\skills' } else { Join-Path $codexHome 'skills' }
     New-Item -ItemType Directory -Force -Path $dir | Out-Null
     foreach ($s in @('run-workflow', 'write-your-method')) {
         $src = Join-Path $New "skills\$s"
@@ -352,6 +357,11 @@ if (-not $env:DURWEG_NO_START -and -not $env:DURWEG_NO_BROWSER) { try { Start-Pr
 $first = T 'Please talk to me in English. Use durweg to run the example write-your-method with me (skill run-workflow).' '请用中文和我交流。用 durweg 带我运行示例 write-your-method（skill run-workflow）。'
 Write-Host ''
 Say 'Durweg is installed.' 'Durweg 装好了。'
+if ($own) {
+    Say 'Next: start your agent the way you always do, and tell it:' '下一步：照你平常的方式启动 agent，然后对它说：'
+    Write-Host "    $first"
+    exit 0
+}
 if ($agents.Count -gt 0 -and -not $env:DURWEG_NO_START -and (Get-Command $agents[0] -ErrorAction SilentlyContinue)) {
     Say "Starting $($agents[0]) with the first example (it may ask you to log in first)..." "正在启动 $($agents[0])，带你做第一个示例（第一次可能会先让你登录）……"
     Set-Location $HOME

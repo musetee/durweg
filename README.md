@@ -102,6 +102,10 @@ own words at each step and the lessons are on this case page (in Chinese):
 - **You installed another agent after Durweg (say Codex first, Claude Code later):** the new agent
   cannot use Durweg yet. Run the installer again and press Enter when it asks whether to change
   Durweg; it sets Durweg up for every agent on the computer.
+- **Your agent is installed, but the installer says none was found:** your agent is not where the
+  system looks (for example you start it with a script). Choose **3** at "which one should be
+  installed": Durweg sets itself up for Claude Code and Codex; start your agent as usual and tell it
+  "Run write-your-method with durweg."
 
 ## 💬 Questions during installation
 
@@ -112,7 +116,7 @@ own words at each step and the lessons are on this case page (in Chinese):
 | **No WSL yet** | • Approve the administrator prompt and restart<br>• Open "Ubuntu" from the Start menu once to choose a Linux user name and password<br>• Double-click the installer again; it remembers your choices |
 | **"Windows protected your PC"** | Click **More info → Run anyway** |
 | **macOS blocked the installer** | • Open System Settings → Privacy & Security and allow it<br>• If macOS installs its developer tools first, double-click the file again when that has finished |
-| **Claude Code or Codex** | • Asked only when neither is installed; press Enter for Claude Code<br>• Log in to it once in your browser afterwards |
+| **Claude Code or Codex** | • Asked only when no agent is found; press Enter for Claude Code, then log in to it once in your browser<br>• You already have an agent and start it your own way (for example with a script): choose **3**; nothing new is installed |
 | **Asked on a second run whether to change Durweg** | • Enter: keep the last choices (update or repair)<br>• `c`: choose again and install Durweg anew |
 
 ---

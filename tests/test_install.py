@@ -108,6 +108,18 @@ class Install(unittest.TestCase):
             time.sleep(0.1)
         self.assertTrue(seen.exists(), "the guide was not opened in the background")
 
+    def test_own_agent_gets_the_skills_and_is_not_started(self):        # tester report
+        r = self.install(DURWEG_LANG="zh", DURWEG_AGENT="own")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for d in (".claude/skills", ".codex/skills"):
+            for s in ("run-workflow", "write-your-method"):
+                self.assertTrue((self.home / d / s / "SKILL.md").is_file(), f"{d}/{s}")
+        self.assertIn("照你平常的方式启动 agent", r.stdout)
+        self.assertEqual(len(self.manifest()["skills"]), 4)
+        u = self.durweg("uninstall")
+        self.assertEqual(u.returncode, 0, u.stdout + u.stderr)
+        self.assertFalse((self.home / ".codex/skills/run-workflow").exists())
+
     def test_no_terminal_means_english(self):
         r = self.install()
         self.assertIn("no terminal to ask in: English", r.stdout)
