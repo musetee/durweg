@@ -75,6 +75,21 @@ class Install(unittest.TestCase):
         self.assertIn("装好了", again.stdout)
         self.assertEqual((self.home / ".bashrc").read_text(encoding="utf-8").count("# added by Durweg"), 1)
 
+    def test_guide_opens_in_the_browser(self):
+        seen = self.tmp / "opened"
+        opener = self.tmp / "opener"
+        opener.write_text(f'#!/bin/sh\nprintf "%s" "$1" > "{seen}"\n')
+        opener.chmod(0o755)
+        r = self.install(DURWEG_LANG="zh", DURWEG_NO_START="", DURWEG_OPEN_CMD=str(opener),
+                         DURWEG_GUIDE="https://example.org/durweg/")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("教程：https://example.org/durweg/README_cn.md", r.stdout)
+        self.assertEqual(seen.read_text(), "https://example.org/durweg/README_cn.md")
+        seen.unlink()
+        r = self.install(DURWEG_LANG="en", DURWEG_OPEN_CMD=str(opener))       # DURWEG_NO_START: no browser
+        self.assertIn("Guide: https://github.com/musetee/durweg/blob/v9.0.0/README.md", r.stdout)
+        self.assertFalse(seen.exists())
+
     def test_no_terminal_means_english(self):
         r = self.install()
         self.assertIn("no terminal to ask in: English", r.stdout)

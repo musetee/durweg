@@ -18,7 +18,7 @@
 | **Mac** | 下载 [`Durweg-Install-macOS.zip`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install-macOS.zip)，解压后双击 `Durweg-Install.command` |
 | **Linux**<br>（不是 Windows 里的 WSL） | 在终端里运行：<br>`curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.0.0/install.sh \| bash` |
 
-安装程序先问语言，Windows 上再问装在哪里（Windows 还是 WSL），然后自动装好，启动你的 agent，带你做[案例](#-案例写下你的方法)。途中遇到的每个提问怎么答：见本页最后的[安装时会遇到的提问](#-安装时会遇到的提问)。
+安装程序先问语言，Windows 上再问装在哪里（Windows 还是 WSL），然后自动装好，在浏览器里打开这个页面，启动你的 agent，带你做[案例](#-案例写下你的方法)。途中遇到的每个提问怎么答：见本页最后的[安装时会遇到的提问](#-安装时会遇到的提问)。
 
 ## 📅 每天怎么用
 

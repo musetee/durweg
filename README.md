@@ -22,7 +22,7 @@ own plan); if neither is on your computer yet, the installer installs one.
 | **Linux**<br>(not WSL on Windows) | In a terminal, run:<br>`curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.0.0/install.sh \| bash` |
 
 The installer asks for your language first (on Windows also where to install: Windows or WSL),
-sets everything up, starts your agent and walks you through the [example](#-example-write-down-your-method).
+sets everything up, opens this page in your browser, starts your agent and walks you through the [example](#-example-write-down-your-method).
 What to answer at each question on the way: see [Questions during installation](#-questions-during-installation)
 at the end of this page.
 

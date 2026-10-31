@@ -133,3 +133,13 @@ jobs:
           if ((Probe 'cmd.exe' '/c exit 1') -notmatch 'installed=False') { throw "failure taken as installed" }
           if ((Probe 'C:\no\such\wsl.exe' '') -notmatch 'installed=False') { throw "missing wsl.exe not handled" }
           if ((Probe 'ping.exe' '-n 60 127.0.0.1') -notmatch 'installed=False') { throw "hanging WSL not handled" }
+      - name: the guide line names the GitHub README (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:DURWEG_SOURCE = "$env:RUNNER_TEMP\pkg\durweg-v0.0.0-ci.zip"
+          $env:DURWEG_SHA256 = ((Get-Content "$env:DURWEG_SOURCE.sha256") -split '\s+')[0]
+          $env:DURWEG_GUIDE = 'https://example.org/durweg/'
+          $out = cmd /c Durweg-Install.bat | Out-String
+          if ($LASTEXITCODE -ne 0) { throw "installer exit $LASTEXITCODE" }
+          if ($out -notmatch [regex]::Escape('Guide: https://example.org/durweg/README.md')) { throw "no guide line: $out" }

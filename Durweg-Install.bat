@@ -130,6 +130,9 @@ if ($Target -eq 'wsl') {
                "curl -fsSL https://raw.githubusercontent.com/$Repo/$Version/install.sh -o /tmp/durweg-install.sh && bash /tmp/durweg-install.sh"
     }
     if ($env:DURWEG_NO_START) { $cmd = "export DURWEG_NO_START=1; $cmd" }
+    if ($env:DURWEG_NO_BROWSER) { $cmd = "export DURWEG_NO_BROWSER=1; $cmd" }
+    $g = if ($env:DURWEG_GUIDE) { $env:DURWEG_GUIDE } elseif ($rc -and $rc.guide) { $rc.guide } else { $null }
+    if ($g) { $cmd = "export DURWEG_GUIDE='$g'; $cmd" }   # install.sh in WSL opens the guide
     & wsl.exe -e bash -lc $cmd
     exit $LASTEXITCODE
 }
@@ -330,6 +333,12 @@ if ($old -and $old.path_entries) { $pathEntries = @($old.path_entries) + $pathEn
 Write-Json (Join-Path $DHome '.install.json') ([ordered]@{
     format = 1; version = $Version; sha256 = $Sha.ToLower(); platform_dir = $New; data_dir = $Local
     launchers = @($Launcher); skills = @($skills); path_lines = @(); path_entries = @($pathEntries) })
+
+# ---- the guide: the README on GitHub opens in the browser ---------------------------------------
+$g = if ($env:DURWEG_GUIDE) { $env:DURWEG_GUIDE } elseif ($rc -and $rc.guide) { $rc.guide } else { "https://github.com/$Repo/blob/$Version/" }
+$Guide = $g + (T 'README.md' 'README_cn.md')
+Say "Guide: $Guide" "教程：$Guide"
+if (-not $env:DURWEG_NO_START -and -not $env:DURWEG_NO_BROWSER) { try { Start-Process $Guide } catch { } }
 
 # ---- start ------------------------------------------------------------------------------------
 $first = T 'Please talk to me in English. Use durweg to run the example write-your-method with me (skill run-workflow).' '请用中文和我交流。用 durweg 带我运行示例 write-your-method（skill run-workflow）。'
