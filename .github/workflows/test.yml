@@ -23,3 +23,55 @@ jobs:
           git config --global init.defaultBranch main
       - name: unit tests
         run: python -m unittest discover -s tests -v
+  install:
+    # the installers, unattended, on real machines: install from a package of this commit, use it,
+    # uninstall. WSL is not available on the hosted runners; it is covered by the real-machine test.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      DURWEG_LANG: en
+      DURWEG_AGENT: skip
+      DURWEG_NO_START: "1"
+      DURWEG_NO_PAUSE: "1"
+      DURWEG_VERSION: v0.0.0-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: package this commit
+        shell: bash
+        run: python tools/package.py v0.0.0-ci "$RUNNER_TEMP/pkg"
+      - name: install (Linux, macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          DURWEG_SOURCE="$RUNNER_TEMP/pkg/durweg-v0.0.0-ci.tar.gz" bash install.sh
+          D="$HOME/.local/bin/durweg"
+          "$D" --version
+          "$D" library list | grep write-your-method
+          "$D" start write-your-method ci --runs "$RUNNER_TEMP/runs"
+          "$D" status "$(ls -d "$RUNNER_TEMP"/runs/*_ci)"
+          "$D" uninstall
+          test ! -e "$D"
+          test -f "$HOME/Durweg/config.json"
+      - name: install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:DURWEG_SOURCE = "$env:RUNNER_TEMP\pkg\durweg-v0.0.0-ci.zip"
+          $env:DURWEG_SHA256 = ((Get-Content "$env:DURWEG_SOURCE.sha256") -split '\s+')[0]
+          cmd /c Durweg-Install.bat
+          if ($LASTEXITCODE -ne 0) { throw "installer exit $LASTEXITCODE" }
+          $D = "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd"
+          & $D --version; if ($LASTEXITCODE -ne 0) { throw "version" }
+          $lib = & $D library list; $lib; if (-not ($lib -match 'write-your-method')) { throw "library" }
+          & $D start write-your-method ci --runs "$env:RUNNER_TEMP\runs"; if ($LASTEXITCODE -ne 0) { throw "start" }
+          $run = Get-ChildItem "$env:RUNNER_TEMP\runs" | Select-Object -First 1
+          & $D status $run.FullName; if ($LASTEXITCODE -ne 0) { throw "status" }
+          & $D uninstall; if ($LASTEXITCODE -ne 0) { throw "uninstall" }
+          if (Test-Path $D) { throw "launcher still there" }
+          if (-not (Test-Path "$HOME\Durweg\config.json")) { throw "config removed" }
