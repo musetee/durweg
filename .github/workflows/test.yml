@@ -97,8 +97,12 @@ jobs:
           $env:DURWEG_VERSION = "v0.0.1"
           $env:DURWEG_SOURCE = "$env:RUNNER_TEMP\pkg1\durweg-v0.0.1.zip"
           $env:DURWEG_SHA256 = ((Get-Content "$env:DURWEG_SOURCE.sha256") -split '\s+')[0]
+          $env:DURWEG_AGENT = "own"            # choice 3: the agents are not on PATH (V11-C-009)
           cmd /c Durweg-Install.bat
           if ($LASTEXITCODE -ne 0) { throw "installer exit $LASTEXITCODE" }
+          $env:DURWEG_AGENT = "skip"
+          $skills = @((Get-Content "$HOME\Durweg\.install.json" -Raw | ConvertFrom-Json).skills)
+          if ($skills.Count -eq 0) { throw "no skills recorded for choice 3" }
           $D = "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd"
           # the launcher hands back durweg's exit code
           & $D start no-such-workflow x; if ($LASTEXITCODE -ne 1) { throw "launcher exit code $LASTEXITCODE, not 1" }
@@ -112,7 +116,11 @@ jobs:
           if ($rcode -ne 0) { throw "update exit $rcode" }
           if ($out -notmatch 'updated\s+v0\.0\.1 -> v0\.0\.2') { throw "not updated" }
           if ($out -match 'is not recognized|not recognised') { throw "cmd.exe read on in the launcher" }
-          if ((Get-Content "$HOME\Durweg\.install.json" -Raw | ConvertFrom-Json).version -ne 'v0.0.2') { throw "manifest" }
+          $m = Get-Content "$HOME\Durweg\.install.json" -Raw | ConvertFrom-Json
+          if ($m.version -ne 'v0.0.2') { throw "manifest" }
+          # V11-C-009: the skills of choice 3 are kept in the manifest and copied anew
+          if (@($m.skills).Count -ne $skills.Count) { throw "skills lost from the manifest: $(@($m.skills) -join ', ')" }
+          foreach ($k in $m.skills) { if ((Get-Content (Join-Path $k '.durweg-owned')) -notmatch 'v0\.0\.2') { throw "skill not refreshed: $k" } }
           if (-not ((Get-Content "$env:LOCALAPPDATA\Durweg\bin\current.txt") -match 'v0\.0\.2')) { throw "current.txt not switched" }
           # durweg.cmd itself is byte for byte the same: nothing for cmd.exe to misread
           if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($D)) -ne [Convert]::ToBase64String($before)) { throw "durweg.cmd changed" }
@@ -120,6 +128,7 @@ jobs:
           $out = & $D update 2>&1 | Out-String; $out
           if ($out -notmatch 'unchanged\s+v0\.0\.2 is the newest') { throw "second update" }
           & $D uninstall; if ($LASTEXITCODE -ne 0) { throw "uninstall" }
+          foreach ($k in $skills) { if (Test-Path $k) { throw "uninstall left the skill $k" } }
           Start-Sleep -Seconds 6
       - name: Python in a folder with spaces (V1-C-007)
         if: runner.os == 'Windows'

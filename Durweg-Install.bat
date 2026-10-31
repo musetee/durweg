@@ -366,6 +366,14 @@ if ($agents.Count -eq 0) {
 }
 # Antigravity started from its own place: its settings or program folder is enough to give it the skills
 $skillAgents = @($agents)
+# an agent that already has Durweg's skills keeps getting them, even when it is not found now (it
+# is started its own way, choice 3, or durweg update runs without asking): V11-C-009
+foreach ($a in @('claude', 'codex', 'agy')) {
+    if ($skillAgents -contains $a) { continue }
+    foreach ($s in @('run-workflow', 'write-your-method')) {
+        if (Test-Path (Join-Path (Join-Path (Get-SkillsDir $a) $s) '.durweg-owned')) { $skillAgents += $a; break }
+    }
+}
 if ($skillAgents -notcontains 'agy' -and ((Test-Path (Join-Path $HOME '.gemini\antigravity-cli')) -or
         (Test-Path (Join-Path $env:LOCALAPPDATA 'agy\bin\agy.exe')))) { $skillAgents += 'agy' }
 $skills = @()
@@ -390,6 +398,10 @@ if ($skillAgents.Count -gt 0) { Ok ('Skills for: ' + ($skillAgents -join ', ')) 
 # ---- install manifest (durweg uninstall reads it) ---------------------------------------------
 $old = Read-Json (Join-Path $DHome '.install.json')
 if ($old -and $old.path_entries) { $pathEntries = @($old.path_entries) + $pathEntries | Select-Object -Unique }
+# keep what an earlier run recorded and is still Durweg's, as install.sh does (V1-C-002, V11-C-009)
+if ($old -and $old.skills) {
+    $skills = @(@($old.skills) + $skills | Where-Object { $_ -and (Test-Path (Join-Path $_ '.durweg-owned')) } | Select-Object -Unique)
+}
 Write-Json (Join-Path $DHome '.install.json') ([ordered]@{
     format = 1; version = $Version; sha256 = $Sha.ToLower(); platform_dir = $New; data_dir = $Local
     launchers = @($Launcher); skills = @($skills); path_lines = @(); path_entries = @($pathEntries) })

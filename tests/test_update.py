@@ -294,3 +294,21 @@ class DurwegUpdateWithoutInstaller(UpdateCase):
         self.assertRegex(out, r"Durweg +skipped +this Durweg was not installed by the installer")
         self.assertIn("updated", self.line(out))
         self.assertEqual(self.rev(self.dest), new)
+
+
+class CatalogLinesInUpdate(UpdateCase):
+    """agy V11-C-010: say "the last copy is kept" only when there is one; quiet says nothing new."""
+
+    def test_never_downloaded_vs_kept_copy(self):
+        os.environ["DURWEG_PUBLIC_CATALOG"] = str(self.tmp / "nothing.git")
+        from durweg import catalog
+        from durweg.util import rmtree
+        rmtree(catalog.cache_dir("public"))
+        out = self.wf("library", "update")
+        self.assertIn("catalog public: not downloaded yet", out)
+        self.assertNotIn("the last copy is kept", out)
+        self.assertNotIn("catalog public", self.wf("library", "update", "--quiet"))
+        os.environ["DURWEG_PUBLIC_CATALOG"] = self.pub_url
+        self.assertIn("catalog public: refreshed", self.wf("library", "update"))
+        os.environ["DURWEG_PUBLIC_CATALOG"] = str(self.tmp / "nothing.git")
+        self.assertIn("the last copy is kept", self.wf("library", "update", "--quiet"))

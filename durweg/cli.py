@@ -347,10 +347,13 @@ def _update(names, quiet=False):
     counts = {}
     if not names:
         for cid, entry in sorted(catalog.enabled().items()):
+            had = (catalog.cache_dir(cid) / "catalog.json").is_file()
             reason = catalog.refresh(cid, entry["url"])
-            if reason:
+            if reason and had:
                 print(f"catalog {cid}: not refreshed ({reason}); the last copy is kept")
-            elif not quiet:
+            elif reason and not quiet:      # never used yet: the installers need not say so (V11-C-010)
+                print(f"catalog {cid}: not downloaded yet ({reason})")
+            elif not reason and not quiet:
                 print(f"catalog {cid}: refreshed")
     rows = library.update(names)
     shown = 0

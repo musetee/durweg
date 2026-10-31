@@ -110,6 +110,27 @@ class Install(unittest.TestCase):
         self.assertRegex(r.stdout, r"Durweg +skipped +cannot ask GitHub")
         self.assertIn("summary:", r.stdout)
 
+    def test_c009_own_agent_keeps_its_skills_through_durweg_update(self):
+        r = self.install(DURWEG_AGENT="own")                         # choice 3: no agent on PATH
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        before = sorted(self.manifest()["skills"])
+        self.assertTrue(before)
+        r = self.update("v9.1.0", self.package("v9.1.0"))
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(sorted(self.manifest()["skills"]), before)
+        for link in before:
+            self.assertTrue(os.readlink(link).startswith(str(self.home / ".local/share/durweg")), link)
+            self.assertTrue(Path(link, "SKILL.md").is_file(), link)
+        self.assertEqual(self.durweg("uninstall").returncode, 0)
+        for link in before:
+            self.assertFalse(os.path.lexists(link), link)
+
+    def test_c010_first_install_says_nothing_about_a_catalog_never_downloaded(self):
+        r = self.install()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("catalog public", r.stdout + r.stderr)
+        self.assertNotIn("the last copy is kept", r.stdout + r.stderr)
+
     def test_rerun_updates_git_workflows_quietly(self):
         self.assertEqual(self.install().returncode, 0)
         r = self.install()

@@ -203,6 +203,17 @@ if [ -z "$agents" ]; then
 fi
 # Antigravity started from its own place: its settings folder is enough to give it the skills
 skill_agents="$agents"
+# an agent that already has Durweg's skills keeps getting them, even when it is not found now (it
+# is started its own way, choice 3, or durweg update runs without asking): V11-C-009
+for a in claude codex agy; do
+    case " $skill_agents " in *" $a "*) continue ;; esac
+    for s in run-workflow write-your-method; do
+        l="$(skills_dir "$a")/$s"
+        if [ -L "$l" ] && case "$(readlink "$l")" in "$DATA"/*) true ;; *) false ;; esac; then
+            skill_agents="$skill_agents $a"; break
+        fi
+    done
+done
 case " $skill_agents " in *" agy "*) ;; *) [ -d "$HOME/.gemini/antigravity-cli" ] && skill_agents="$skill_agents agy" ;; esac
 skills=()
 for a in $skill_agents; do

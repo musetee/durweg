@@ -1,3 +1,5 @@
+[← README](../README_cn.md) · [English](update.md)
+
 # 更新 Durweg 和你的工作流
 
 `durweg update` 先把 Durweg 本身升到最新的发布版本，再把你从 git 装的工作流（从目录里按名字装的，或者按 git 地址装的）更新到最新版本。已经开始的运行不受影响：每次运行都存着自己的一份工作流。

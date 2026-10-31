@@ -1,3 +1,5 @@
+[← README](../README.md) · [中文](update_cn.md)
+
 # Updating Durweg and your workflows
 
 `durweg update` brings Durweg itself to the newest release and then the workflows you installed
