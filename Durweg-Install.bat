@@ -31,12 +31,38 @@ $SetupFile = Join-Path $Local 'setup.json'
 $setup = Read-Json $SetupFile
 $Lang = $env:DURWEG_LANG
 if (-not $Lang -and $setup -and $setup.language -and -not $env:DURWEG_TARGET) {
-    # a rerun: keep the choices with Enter (e.g. after the WSL restart), or choose again with c
-    $l = if ($setup.language -eq 'zh') { '中文' } else { 'English' }
-    $w = if ($setup.target -eq 'wsl') { 'WSL' } else { 'Windows' }
+    # a rerun: say what is there, ask whether to change it; Enter keeps (e.g. after the WSL restart)
+    if ($setup.target -eq 'wsl') {
+        & wsl.exe -e sh -c 'test -x "$HOME/.local/bin/durweg"' 2>$null | Out-Null
+        $installed = ($LASTEXITCODE -eq 0)
+    } else { $installed = Test-Path (Join-Path $Local 'bin\durweg.cmd') }
+    $zhL = if ($setup.language -eq 'zh') { '中文' } else { '英文' }
+    $enL = if ($setup.language -eq 'zh') { 'Chinese' } else { 'English' }
+    $where = if ($setup.target -eq 'wsl') { 'WSL' } else { 'Windows' }
     Write-Host ''
-    Write-Host "  Durweg: last time / 上次: $l · $w"
-    $a = Read-Host '  Enter = keep / 回车 = 沿用;  c = choose again / 重新选择'
+    if ($installed) {
+        Write-Host "  Durweg 已经装在这台电脑上（语言：$zhL，位置：$where）。"
+        Write-Host '  要修改吗？'
+        Write-Host '    回车   不修改，按上次的选择继续（更新或修复 Durweg）'
+    } else {
+        Write-Host "  上次的安装还没有完成（语言：$zhL，位置：$where）。"
+        Write-Host '  要修改吗？'
+        Write-Host '    回车   不修改，按上次的选择接着安装'
+    }
+    Write-Host '    c      重新选择语言和安装位置，重新安装 Durweg'
+    Write-Host ''
+    if ($installed) {
+        Write-Host "  Durweg is already installed on this computer (language: $enL, in $where)."
+        Write-Host '  Do you want to change it?'
+        Write-Host '    Enter  no change: continue with the last choices (update or repair Durweg)'
+    } else {
+        Write-Host "  The last installation has not finished yet (language: $enL, in $where)."
+        Write-Host '  Do you want to change it?'
+        Write-Host '    Enter  no change: continue the installation with the last choices'
+    }
+    Write-Host '    c      choose the language and the place again, and install Durweg anew'
+    Write-Host ''
+    $a = Read-Host '  回车 / Enter，或 / or c'
     if ($a -like 'c*') { $setup = $null } else { $Lang = $setup.language }
 } elseif (-not $Lang -and $setup) { $Lang = $setup.language }
 if (-not $Lang) {

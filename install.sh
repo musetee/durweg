@@ -25,9 +25,20 @@ TTY=/dev/tty; { : < "$TTY"; } 2>/dev/null || TTY=''
 LANG_CHOICE="${DURWEG_LANG:-}"
 if [ -z "$LANG_CHOICE" ] && [ -f "$DHOME/config.json" ]; then
     LANG_CHOICE="$(sed -n 's/.*"language"[[:space:]]*:[[:space:]]*"\([a-z]*\)".*/\1/p' "$DHOME/config.json" | head -n 1)"
-    if [ -n "$LANG_CHOICE" ] && [ -n "$TTY" ]; then      # a rerun: Enter keeps it, c chooses again
-        shown=English; [ "$LANG_CHOICE" = zh ] && shown=中文
-        printf '\n  Durweg: last time / 上次: %s\n  Enter = keep / 回车 = 沿用;  c = choose again / 重新选择: ' "$shown"
+    if [ -n "$LANG_CHOICE" ] && [ -n "$TTY" ]; then      # a rerun: say what is there, ask whether to change it
+        zh_l=英文; en_l=English; [ "$LANG_CHOICE" = zh ] && { zh_l=中文; en_l=Chinese; }
+        if [ -x "$BIN/durweg" ]; then
+            printf '\n  Durweg 已经装在这台电脑上（语言：%s）。\n  要修改吗？\n    回车   不修改，按上次的选择继续（更新或修复 Durweg）\n' "$zh_l"
+            printf '    c      重新选择语言，重新安装 Durweg\n\n'
+            printf '  Durweg is already installed on this computer (language: %s).\n  Do you want to change it?\n' "$en_l"
+            printf '    Enter  no change: continue with the last choice (update or repair Durweg)\n'
+        else
+            printf '\n  上次的安装还没有完成（语言：%s）。\n  要修改吗？\n    回车   不修改，按上次的选择接着安装\n' "$zh_l"
+            printf '    c      重新选择语言，重新安装 Durweg\n\n'
+            printf '  The last installation has not finished yet (language: %s).\n  Do you want to change it?\n' "$en_l"
+            printf '    Enter  no change: continue the installation with the last choice\n'
+        fi
+        printf '    c      choose the language again, and install Durweg anew\n\n  回车 / Enter，或 / or c: '
         read -r ans < "$TTY" || ans=''
         case "$ans" in c*|C*) LANG_CHOICE='' ;; esac
     fi
