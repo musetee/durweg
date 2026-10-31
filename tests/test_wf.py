@@ -677,3 +677,12 @@ class AuditIsAPlugin(WfCase):
     def test_core_audit_only_points_to_the_plugin(self):
         out = self.wf("audit", "x", "--transcript", "y", expect=5)
         self.assertIn("durweg-audit", out)
+
+
+class Config(WfCase):
+    def test_show_and_change_language(self):
+        self.assertIn("language: en", self.wf("config"))
+        self.assertIn("language: zh", self.wf("config", "language", "zh"))
+        cfg = json.loads((Path(os.environ["DURWEG_HOME"]) / "config.json").read_text(encoding="utf-8"))
+        self.assertEqual(cfg["language"], "zh")
+        self.wf("config", "language", "fr", expect=1)

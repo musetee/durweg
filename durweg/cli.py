@@ -324,6 +324,25 @@ def cmd_runs(a):
     return 0
 
 
+def cmd_config(a):
+    """Show or change ~/Durweg/config.json (the language agents use to talk to you)."""
+    p = library.home() / "config.json"
+    try:
+        cfg = json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+    except ValueError:
+        raise WfError(f"{p} cannot be read; fix or delete it")
+    if a.key:
+        if a.key != "language" or a.value not in ("en", "zh"):
+            raise WfError("durweg config language en|zh")
+        cfg["language"] = a.value
+        p.parent.mkdir(parents=True, exist_ok=True)
+        write_json(p, cfg)
+        print(f"language: {a.value} (agents use it from their next step on)")
+    else:
+        print(f"{p}\nlanguage: {cfg.get('language', 'en')}")
+    return 0
+
+
 def cmd_uninstall(a):
     from .uninstall import uninstall
     for line in uninstall(dry_run=a.dry_run):
@@ -383,6 +402,9 @@ def main(argv=None):
     p.add_argument("--name")
     p = sub.add_parser("runs", help="list the runs started on this computer")
     p.add_argument("--rebuild", metavar="FOLDER", help="scan FOLDER for runs and add them to the index")
+    p = sub.add_parser("config", help="show or change your settings: durweg config language en|zh")
+    p.add_argument("key", nargs="?")
+    p.add_argument("value", nargs="?")
     p = sub.add_parser("uninstall", help="remove what the installer put on this computer (keeps ~/Durweg)")
     p.add_argument("--dry-run", action="store_true")
     p = sub.add_parser("status")
@@ -396,7 +418,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     fn = {"start": cmd_start, "begin": cmd_begin, "propose": cmd_propose, "confirm": cmd_confirm,
           "done": cmd_done, "reopen": cmd_reopen, "status": cmd_status, "render": cmd_render,
-          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "runs": cmd_runs, "uninstall": cmd_uninstall}[a.cmd]
+          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "runs": cmd_runs, "uninstall": cmd_uninstall, "config": cmd_config}[a.cmd]
     try:
         rc = fn(a)
     except WfError as e:

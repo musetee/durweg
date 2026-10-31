@@ -25,6 +25,12 @@ TTY=/dev/tty; { : < "$TTY"; } 2>/dev/null || TTY=''
 LANG_CHOICE="${DURWEG_LANG:-}"
 if [ -z "$LANG_CHOICE" ] && [ -f "$DHOME/config.json" ]; then
     LANG_CHOICE="$(sed -n 's/.*"language"[[:space:]]*:[[:space:]]*"\([a-z]*\)".*/\1/p' "$DHOME/config.json" | head -n 1)"
+    if [ -n "$LANG_CHOICE" ] && [ -n "$TTY" ]; then      # a rerun: Enter keeps it, c chooses again
+        shown=English; [ "$LANG_CHOICE" = zh ] && shown=中文
+        printf '\n  Durweg: last time / 上次: %s\n  Enter = keep / 回车 = 沿用;  c = choose again / 重新选择: ' "$shown"
+        read -r ans < "$TTY" || ans=''
+        case "$ans" in c*|C*) LANG_CHOICE='' ;; esac
+    fi
 fi
 if [ -z "$LANG_CHOICE" ]; then
     if [ -n "$TTY" ]; then

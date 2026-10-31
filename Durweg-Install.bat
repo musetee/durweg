@@ -30,7 +30,15 @@ function Write-Json($p, $o) { [IO.File]::WriteAllText($p, ($o | ConvertTo-Json -
 $SetupFile = Join-Path $Local 'setup.json'
 $setup = Read-Json $SetupFile
 $Lang = $env:DURWEG_LANG
-if (-not $Lang -and $setup) { $Lang = $setup.language }
+if (-not $Lang -and $setup -and $setup.language -and -not $env:DURWEG_TARGET) {
+    # a rerun: keep the choices with Enter (e.g. after the WSL restart), or choose again with c
+    $l = if ($setup.language -eq 'zh') { '中文' } else { 'English' }
+    $w = if ($setup.target -eq 'wsl') { 'WSL' } else { 'Windows' }
+    Write-Host ''
+    Write-Host "  Durweg: last time / 上次: $l · $w"
+    $a = Read-Host '  Enter = keep / 回车 = 沿用;  c = choose again / 重新选择'
+    if ($a -like 'c*') { $setup = $null } else { $Lang = $setup.language }
+} elseif (-not $Lang -and $setup) { $Lang = $setup.language }
 if (-not $Lang) {
     Write-Host ''; Write-Host '  Durweg'; Write-Host ''; Write-Host '  1) English'; Write-Host '  2) 中文'; Write-Host ''
     $a = Read-Host '  Language / 语言 [1]'
