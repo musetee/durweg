@@ -77,6 +77,7 @@ def cmd_start(a):
     if not SLUG.match(a.slug):
         raise WfError(f"slug must match {SLUG.pattern}")
     wf = workflow.load(a.workflow)
+    workflow.check_platform(wf)
     files = workflow.snapshot_sources(wf)
     kind, commit, dirty = workflow.repo_state(wf, files, a.dev)
     runs = Path(a.runs).expanduser().resolve()
@@ -335,7 +336,7 @@ def main(argv=None):
         rc = fn(a)
     except WfError as e:
         print(str(e), file=sys.stderr)
-        return 1
+        return getattr(e, "exit_code", 1)
     return rc or 0
 
 

@@ -548,3 +548,54 @@ class GitOptional(WfCase):
         src = self.plain_copy(outer / "methods" / "mini")
         out = self.wf("start", src, "inner", "--runs", self.runs, expect=1)
         self.assertIn("not committed and clean", out)
+
+
+class Platforms(WfCase):
+    """Plan 2.2: platforms in workflow.json; refused before the run folder exists."""
+
+    def set_platforms(self, value):
+        w = json.loads((self.repo / "workflow.json").read_text())
+        w["platforms"] = value
+        (self.repo / "workflow.json").write_text(json.dumps(w))
+        git(self.repo, "commit", "-qam", "platforms")
+
+    def start_rc(self):
+        from durweg.cli import main as m
+        import contextlib, io
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+            rc = m(["start", str(self.repo), "p", "--runs", str(self.runs)])
+        return rc, err.getvalue()
+
+    def test_supported_here(self):
+        from durweg.util import current_platform
+        self.set_platforms([current_platform()])
+        self.assertEqual(self.start_rc()[0], 0)
+
+    def test_unsupported_is_refused_before_the_run(self):
+        from durweg.util import current_platform
+        other = [p for p in ("linux", "macos", "windows") if p != current_platform()]
+        self.set_platforms(other[:1])
+        rc, err = self.start_rc()
+        self.assertEqual(rc, 3, err)
+        self.assertIn("supports", err)
+        self.assertFalse(self.runs.exists() and any(self.runs.iterdir()))
+
+    def test_definition_errors_exit_2(self):
+        for bad in ([], ["linux", "linux"], ["beos"], "linux"):
+            self.set_platforms(bad)
+            rc, err = self.start_rc()
+            self.assertEqual(rc, 2, (bad, err))
+
+    def test_windows_hint_for_wsl(self):
+        from durweg import workflow, util
+        self.set_platforms(["linux"])
+        wf = workflow.load(self.repo)
+        orig = util.current_platform
+        workflow.current_platform = lambda: "windows"
+        try:
+            with self.assertRaises(util.UnsupportedPlatform) as cm:
+                workflow.check_platform(wf)
+        finally:
+            workflow.current_platform = orig
+        self.assertIn("WSL", str(cm.exception))

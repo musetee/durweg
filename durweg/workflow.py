@@ -5,9 +5,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from .util import WfError, read_json, sha256_file, write_json
+from .util import DefinitionError, UnsupportedPlatform, WfError, current_platform, read_json, sha256_file, write_json
 
 GATE_TYPES = {"json", "sections", "table", "files", "command", "user"}
+PLATFORMS = ("linux", "macos", "windows")
 STEP_ID = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 SNAP = ".wf/workflow"
 
@@ -54,9 +55,19 @@ def validate(data):
         if key not in data:
             errs.append(f"workflow.json: missing '{key}'")
     if errs:
-        raise WfError("; ".join(errs))
+        raise DefinitionError("; ".join(errs))
     if not isinstance(data["steps"], list) or not data["steps"]:
-        raise WfError("workflow.json: 'steps' must be a non-empty list")
+        raise DefinitionError("workflow.json: 'steps' must be a non-empty list")
+    if "platforms" in data:
+        pl = data["platforms"]
+        if not isinstance(pl, list) or not pl or not all(isinstance(x, str) for x in pl):
+            errs.append("'platforms' must be a non-empty list of: " + ", ".join(PLATFORMS))
+        else:
+            bad = [x for x in pl if x not in PLATFORMS]
+            if bad:
+                errs.append(f"'platforms': unknown {bad} (allowed: {', '.join(PLATFORMS)}; WSL counts as linux)")
+            if len(set(pl)) != len(pl):
+                errs.append("'platforms' lists a system twice")
     seen = []
     for i, s in enumerate(data["steps"]):
         where = f"step {i + 1}"
@@ -91,8 +102,18 @@ def validate(data):
                     errs.append(f"{sid}: command gate must run a script from the snapshot ({{wf}}/...)")
         seen.append(sid)
     if errs:
-        raise WfError("invalid workflow.json:\n  " + "\n  ".join(errs))
+        raise DefinitionError("invalid workflow.json:\n  " + "\n  ".join(errs))
     return data
+
+
+def check_platform(wf):
+    """Refuse before anything is created when the workflow does not support this system."""
+    allowed = wf.data.get("platforms") or list(PLATFORMS)
+    here = current_platform()
+    if here in allowed:
+        return
+    hint = "  On Windows you can use it inside WSL." if here == "windows" and "linux" in allowed else ""
+    raise UnsupportedPlatform(f"workflow {wf.id} supports {', '.join(allowed)}, not {here}.{hint}")
 
 
 def load(root):
@@ -103,7 +124,7 @@ def load(root):
     try:
         data = read_json(path)
     except ValueError as e:
-        raise WfError(f"{path}: {e}") from e
+        raise DefinitionError(f"{path}: {e}") from e
     return Workflow(validate(data), root)
 
 

@@ -12,6 +12,26 @@ class WfError(Exception):
     """A refusal or error to show the user; the command exits 1."""
 
 
+class DefinitionError(WfError):
+    """workflow.json is not valid; the command exits 2."""
+    exit_code = 2
+
+
+class UnsupportedPlatform(WfError):
+    """The workflow does not support this operating system; the command exits 3."""
+    exit_code = 3
+
+
+def current_platform():
+    """linux (also WSL), macos or windows."""
+    import sys
+    if sys.platform.startswith("win"):
+        return "windows"
+    if sys.platform == "darwin":
+        return "macos"
+    return "linux"
+
+
 def now():
     return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 
