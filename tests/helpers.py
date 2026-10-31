@@ -168,10 +168,10 @@ class WfCase(unittest.TestCase):
         return rc, out.getvalue()
 
     def events(self):
-        return json.loads((self.run / ".wf/state.json").read_text())["events"]
+        return json.loads((self.run / ".wf/state.json").read_text(encoding="utf-8"))["events"]
 
     def set_events(self, events):
         p = self.run / ".wf/state.json"
-        d = json.loads(p.read_text())
+        d = json.loads(p.read_text(encoding="utf-8"))
         d["events"] = events
         p.write_text(json.dumps(d))

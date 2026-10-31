@@ -23,7 +23,7 @@ class GoodRun(WfCase):
         self.start("t", "--trial")
         self.full()
         self.wf("render", self.run)
-        text = (self.run / "run.md").read_text()
+        text = (self.run / "run.md").read_text(encoding="utf-8")
         self.assertIn("Trial run", text)
         self.assertIn("dogs please", text)
         self.assertEqual(self.check()[0], 0)
@@ -31,7 +31,7 @@ class GoodRun(WfCase):
     def test_decision_file_written_by_confirm(self):
         self.start()
         self.step_topic()
-        dec = json.loads((self.run / "steps/1-topic.decision.json").read_text())
+        dec = json.loads((self.run / "steps/1-topic.decision.json").read_text(encoding="utf-8"))
         self.assertEqual(dec["values"], {"chosen": "dogs"})
 
 
@@ -57,7 +57,7 @@ class StartRules(WfCase):
         self.assertIn("demo-2", out)
 
     def test_command_script_must_be_in_snapshot(self):
-        wfj = json.loads((self.repo / "workflow.json").read_text())
+        wfj = json.loads((self.repo / "workflow.json").read_text(encoding="utf-8"))
         wfj["snapshot"] = []
         (self.repo / "workflow.json").write_text(json.dumps(wfj))
         git(self.repo, "commit", "-qam", "drop snapshot")
@@ -261,7 +261,7 @@ class AfterDone(WfCase):
         self.start()
         self.full()
         p = self.run / "steps/1-topic.decision.json"
-        d = json.loads(p.read_text())
+        d = json.loads(p.read_text(encoding="utf-8"))
         d["values"]["chosen"] = "cats"
         p.write_text(json.dumps(d))
         rc, out = self.check()
@@ -328,7 +328,7 @@ class Reopen(WfCase):
         self.wf("reopen", self.run, "topic", "--reason", "x", expect=1)
 
     def test_reopen_unrelated_while_active_refused(self):
-        wfj = json.loads((self.repo / "workflow.json").read_text())
+        wfj = json.loads((self.repo / "workflow.json").read_text(encoding="utf-8"))
         wfj["steps"][2]["needs"] = ["topic"]          # verify does not need points
         (self.repo / "workflow.json").write_text(json.dumps(wfj))
         git(self.repo, "commit", "-qam", "dag")
@@ -412,7 +412,7 @@ if __name__ == "__main__":
 
 class CommandGate(WfCase):
     def edit_gate(self, **kw):
-        w = json.loads((self.repo / "workflow.json").read_text())
+        w = json.loads((self.repo / "workflow.json").read_text(encoding="utf-8"))
         w["steps"][2]["gates"][1].update(kw)
         (self.repo / "workflow.json").write_text(json.dumps(w))
 
@@ -554,7 +554,7 @@ class Platforms(WfCase):
     """Plan 2.2: platforms in workflow.json; refused before the run folder exists."""
 
     def set_platforms(self, value):
-        w = json.loads((self.repo / "workflow.json").read_text())
+        w = json.loads((self.repo / "workflow.json").read_text(encoding="utf-8"))
         w["platforms"] = value
         (self.repo / "workflow.json").write_text(json.dumps(w))
         git(self.repo, "commit", "-qam", "platforms")
@@ -617,7 +617,7 @@ class Library(WfCase):
         self.assertEqual(self.check()[0], 0)
         out = self.wf("runs")
         self.assertIn("done", out)
-        self.assertIn(str(self.run), out)
+        self.assertIn(os.path.realpath(self.run), out)          # Windows: long names, not RUNNER~1
 
     def test_duplicate_name_refused(self):
         self.wf("library", "add", self.repo)
@@ -659,7 +659,7 @@ class Library(WfCase):
         self.assertTrue(self.run.is_dir())                        # the run itself is untouched
         (self.home() / "runs.json").unlink()
         self.assertIn("found 1 run", self.wf("runs", "--rebuild", self.runs))
-        self.assertIn(str(self.run), self.wf("runs"))
+        self.assertIn(os.path.realpath(self.run), self.wf("runs"))
 
     def test_git_address_needs_git(self):
         old = os.environ["PATH"]

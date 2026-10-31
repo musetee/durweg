@@ -53,7 +53,7 @@ class Install(unittest.TestCase):
         f.chmod(0o755)
 
     def manifest(self):
-        return json.loads((self.home / "Durweg/.install.json").read_text())
+        return json.loads((self.home / "Durweg/.install.json").read_text(encoding="utf-8"))
 
     def durweg(self, *args):
         return subprocess.run([str(self.home / ".local/bin/durweg"), *map(str, args)], capture_output=True,
@@ -64,8 +64,8 @@ class Install(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("Durweg 装好了", r.stdout)
         self.assertEqual(self.durweg("--version").returncode, 0)
-        self.assertEqual(json.loads((self.home / "Durweg/config.json").read_text())["language"], "zh")
-        m = json.loads((self.home / "Durweg/.install.json").read_text())
+        self.assertEqual(json.loads((self.home / "Durweg/config.json").read_text(encoding="utf-8"))["language"], "zh")
+        m = json.loads((self.home / "Durweg/.install.json").read_text(encoding="utf-8"))
         self.assertEqual(m["sha256"], self.sha)
         lib = self.durweg("library", "list").stdout
         self.assertIn("write-your-method", lib)
@@ -73,7 +73,7 @@ class Install(unittest.TestCase):
         again = self.install()                                                 # remembers the language
         self.assertEqual(again.returncode, 0, again.stdout)
         self.assertIn("装好了", again.stdout)
-        self.assertEqual((self.home / ".bashrc").read_text().count("# added by Durweg"), 1)
+        self.assertEqual((self.home / ".bashrc").read_text(encoding="utf-8").count("# added by Durweg"), 1)
 
     def test_no_terminal_means_english(self):
         r = self.install()
@@ -121,7 +121,7 @@ class Install(unittest.TestCase):
         r = self.install()
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertIn("not Durweg's", r.stdout)
-        self.assertEqual((own / "SKILL.md").read_text(), "mine\n")
+        self.assertEqual((own / "SKILL.md").read_text(encoding="utf-8"), "mine\n")
         self.assertTrue((self.home / ".claude/skills/run-workflow").is_symlink())
 
     def test_uninstall_removes_only_ours(self):
@@ -135,7 +135,7 @@ class Install(unittest.TestCase):
         self.assertFalse((self.home / ".local/bin/durweg").exists())
         self.assertFalse(os.path.lexists(self.home / ".claude/skills/run-workflow"))
         self.assertFalse((self.home / ".local/share/durweg").exists())
-        self.assertNotIn("# added by Durweg", (self.home / ".bashrc").read_text())
+        self.assertNotIn("# added by Durweg", (self.home / ".bashrc").read_text(encoding="utf-8"))
         self.assertTrue(own.is_dir())
         self.assertTrue((self.home / "Durweg/config.json").is_file())
         self.assertTrue((self.home / "Durweg/workflows/my-method").is_dir())
@@ -158,7 +158,7 @@ class Install(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertTrue(self.manifest()["path_lines"])
         self.durweg("uninstall")
-        self.assertNotIn("# added by Durweg", (self.home / ".bashrc").read_text())
+        self.assertNotIn("# added by Durweg", (self.home / ".bashrc").read_text(encoding="utf-8"))
 
     def test_rerun_repairs_a_damaged_same_version(self):                # V1-C-003
         self.install()

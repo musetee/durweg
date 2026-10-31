@@ -80,5 +80,7 @@ jobs:
           $run = Get-ChildItem "$env:RUNNER_TEMP\runs" | Select-Object -First 1
           & $D status $run.FullName; if ($LASTEXITCODE -ne 0) { throw "status" }
           & $D uninstall; if ($LASTEXITCODE -ne 0) { throw "uninstall" }
+          Start-Sleep -Seconds 6
           if (Test-Path $D) { throw "launcher still there" }
+          if (Test-Path "$env:LOCALAPPDATA\Durweg\v0.0.0-ci") { throw "platform still there" }
           if (-not (Test-Path "$HOME\Durweg\config.json")) { throw "config removed" }

@@ -8,6 +8,7 @@ only when it carries .durweg-owned), the PATH line or entry it added, the platfo
 import json
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 from .library import home
@@ -31,10 +32,13 @@ def uninstall(dry_run=False):
     m = json.loads(manifest.read_text(encoding="utf-8"))
     data_dir = Path(m["data_dir"])
     done = []
+    later = []          # Windows: the running durweg.cmd and its folder go after this command ends
     for p in m.get("launchers", []) + m.get("skills", []):
         if os.path.lexists(p) and _ours(p, data_dir):
             done.append(f"removed {p}")
-            if not dry_run:
+            if not dry_run and os.name == "nt" and p in m.get("launchers", []):
+                later.append(("del", p))
+            elif not dry_run:
                 if Path(p).is_dir() and not Path(p).is_symlink():
                     shutil.rmtree(p)
                 else:
@@ -61,8 +65,16 @@ def uninstall(dry_run=False):
             done.append(f"removed {entry} from your PATH")
     if data_dir.is_dir():
         done.append(f"removed {data_dir}")
-        if not dry_run:
+        if not dry_run and os.name == "nt":
+            later.append(("rmdir", str(data_dir)))
+        elif not dry_run:
             shutil.rmtree(data_dir, ignore_errors=True)
+    if later:
+        steps = " & ".join(f'del /f /q "{p}"' if k == "del" else f'rmdir /s /q "{p}"' for k, p in later)
+        subprocess.Popen(f'cmd /c "ping -n 3 127.0.0.1 >nul & {steps}"', shell=False,
+                         creationflags=0x00000008 | 0x00000200,     # DETACHED_PROCESS | NEW_PROCESS_GROUP
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        done.append("(on Windows the command itself is removed a moment after this window's command ends)")
     if not dry_run:
         manifest.unlink()
     done.append(f"kept {home()} (settings, your workflows, the library) and the runs in your projects")
