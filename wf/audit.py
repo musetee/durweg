@@ -31,7 +31,6 @@ SUBS = ("start", "begin", "propose", "confirm", "done", "reopen", "status", "ren
 WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit"}
 RISKY = re.compile(r"\b(python3?|perl|node|ruby|awk|rsync|dd|install|ln|truncate|sponge|unzip|tar|bash|sh|zsh|"
                    r"make|git\s+(checkout|restore|apply|stash|reset))\b|\bsed\s+(-\w*i|--in-place)|^\s*\./")
-UNCERTAIN = re.compile(r"(?<![&|])&(?![&>])|\$\(|`|\bfor\b|\bwhile\b|\buntil\b|\bif\b|\bxargs\b|\bfunction\b|\(\s*\)")
 PATCH_FILE = re.compile(r"^\*\*\* (?:Add|Update|Delete) File: (.+)$", re.M)
 JS_CMD = re.compile(r"\bcmd\s*:\s*(\"(?:[^\"\\]|\\.)*\")")
 SYSTEMISH = ("<", "# AGENTS.md instructions")
@@ -184,46 +183,89 @@ def load_transcripts(files):
 
 
 # -- calls -> ordered operations -------------------------------------------------------
-def _segments(cmd):
-    """Split on ; && || | and newlines outside quotes (WP-C-001, round 3).
+KEYWORDS = {"for", "while", "until", "if", "then", "else", "elif", "fi", "do", "done", "case", "esac",
+            "select", "function", "eval", "time", "coproc", "!", "[[", "]]", "{", "}"}
 
-    Returns None when the quoting cannot be followed (unbalanced quotes); the caller then
-    treats the command as unparsed, which is a gap, never evidence.
+
+def _segments(cmd):
+    """Split a command of the supported subset into simple commands (WP-C-001, round 4).
+
+    Supported: simple commands joined by ; && || | and newlines; words with single quotes,
+    double quotes and backslash escapes; redirections (> >> 2> 2>&1 &> < <<<); here-documents
+    (their bodies are removed first). Anything else - comments, $( ), backticks, ( ) groups,
+    { } blocks, a lone & (background), <( ) >( ), control keywords, eval - is outside the subset:
+    the function returns None and the caller treats the whole command as unparsed, which is a
+    gap and never evidence.
     """
-    segs, cur, i, quote = [], [], 0, None
-    while i < len(cmd):
+    segs, cur, i, quote, word_start = [], [], 0, None, True
+    n = len(cmd)
+    while i < n:
         c = cmd[i]
         if quote == "'":
             if c == "'":
                 quote = None
             cur.append(c)
-        elif quote == '"':
-            if c == "\\" and i + 1 < len(cmd):
+            i += 1
+            continue
+        if quote == '"':
+            if c == "\\" and i + 1 < n:
                 cur.append(cmd[i:i + 2])
                 i += 2
                 continue
+            if c == "`" or cmd.startswith("$(", i):
+                return None
             if c == '"':
                 quote = None
             cur.append(c)
-        elif c == "\\" and i + 1 < len(cmd):
+            i += 1
+            continue
+        if c == "\\" and i + 1 < n:
+            if cmd[i + 1] == "\n":            # line continuation
+                i += 2
+                continue
             cur.append(cmd[i:i + 2])
             i += 2
+            word_start = False
             continue
-        elif c in "'\"":
+        if c in "'\"":
             quote = c
             cur.append(c)
-        elif c in ";\n" or (c in "&|" and cmd[i:i + 2] in ("&&", "||")) or c == "|":
-            segs.append("".join(cur))
-            cur = []
-            i += 2 if cmd[i:i + 2] in ("&&", "||") else 1
+            i += 1
+            word_start = False
             continue
-        else:
-            cur.append(c)
+        if c == "#" and word_start:
+            return None                       # a comment
+        if c == "`" or cmd.startswith("$(", i) or c in "(){}" or cmd.startswith("<(", i) or cmd.startswith(">(", i):
+            return None
+        two = cmd[i:i + 2]
+        if two in ("&&", "||"):
+            segs.append("".join(cur))
+            cur, i, word_start = [], i + 2, True
+            continue
+        if c == "&":
+            prev = cmd[i - 1] if i else ""
+            if prev == ">" or cmd.startswith("&>", i):   # 2>&1, &>file
+                cur.append(c)
+                i += 1
+                word_start = False
+                continue
+            return None                       # background
+        if c in ";|\n":
+            segs.append("".join(cur))
+            cur, i, word_start = [], i + 1, True
+            continue
+        cur.append(c)
+        word_start = c in " \t"
         i += 1
     if quote:
         return None
     segs.append("".join(cur))
-    return [s for s in segs if s.strip()]
+    segs = [s for s in segs if s.strip()]
+    for s in segs:
+        toks = _tokens(s)
+        if toks and toks[0] in KEYWORDS:
+            return None
+    return segs
 
 
 def _tokens(seg):
@@ -325,8 +367,6 @@ def call_ops(call):
     for p in call["paths"]:
         ops.append(("write", {"path": p, "cwd": cwd}))
     for cmd in call["cmds"]:
-        if UNCERTAIN.search(cmd):
-            uncertain = True
         here = cwd
         segs = _segments(strip_heredocs(cmd))
         if segs is None:
@@ -420,6 +460,7 @@ class Audit:
     # 1. operations with fractional positions inside their call
     def build_ops(self):
         self.ops = []          # (pos, kind, data, call, result)
+        self.unparsed_wf = []      # (call time, result time) of unreadable commands naming wf/the run
         self.wf_calls = set()
         for it in self.stream.items:
             if it["kind"] != "call":
@@ -431,6 +472,8 @@ class Audit:
                 self.ops.append((it["pos"] + (k + 1) / 1000.0, kind, data, it, res))
                 if kind == "wf":
                     self.wf_calls.add(it.get("id"))
+                if kind == "unparsed" and (re.search(r"\bwf\b", data["cmd"]) or self.mentions_run(data["cmd"])):
+                    self.unparsed_wf.append((it["t"], (res or {}).get("t") or it["t"]))
 
     # 2. event evidence, both ways
     def match_events(self):
@@ -492,6 +535,11 @@ class Audit:
                                  f"(interrupted?); check the output of that call")
                 continue
             t = _ts(ev.get("t"))
+            if t and any(a and b and a - slack <= t <= b + slack for a, b in self.unparsed_wf):
+                self.gaps.append(f"{what}: no readable wf call; it may be inside a command audit cannot "
+                                 f"read (listed as a gap)")
+                continue
+            t = _ts(ev.get("t"))
             covered = [f for f, a, b in self.stream.spans if a and b and t and a - slack <= t <= b + slack]
             if covered:
                 self.violations.append(f"{what}: no successful wf call in {covered[0]}, which covers that time")
@@ -541,9 +589,13 @@ class Audit:
                     self._check_write(os.path.relpath(ap, self.rd), pos, call, certain=True)
             elif kind == "risky":
                 self._risky(pos, data, call, lifetime)
-            elif kind == "unparsed" and (self.mentions_run(data["cmd"]) or re.search(r"\bwf\b", data["cmd"])):
-                self.gaps.append(f"command whose quoting audit cannot follow; check it by hand: "
-                                 f"{data['cmd'].strip()[:200]}")
+            elif kind == "unparsed":
+                cwd_in = bool(call.get("cwd")) and self.in_run(".", call.get("cwd"))[0]
+                if self.mentions_run(data["cmd"]) or re.search(r"\bwf\b", data["cmd"]) or cwd_in \
+                        or "steps/" in data["cmd"] or ".wf" in data["cmd"]:
+                    self.gaps.append(f"command outside the shell subset audit reads (comments, $( ), "
+                                     f"groups, loops, background, unbalanced quotes); check it by hand: "
+                                     f"{data['cmd'].strip()[:200]}")
 
     def _risky(self, pos, data, call, lifetime):
         cwd_in = bool(data["cwd"]) and self.in_run(".", data["cwd"])[0]

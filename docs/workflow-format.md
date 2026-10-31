@@ -47,3 +47,10 @@ are in `steps/<n>-<id>.decision.json` as `{"confirm_event": n, "values": {...}}`
   - `INSUFFICIENT` (exit 2): a person has to look. Each gap has an id; write what you checked
     under `## G-xxxxxxxx` in `<run>/audit-notes.md`, and audit reports it as cleared. Every
     confirmation is such a gap: a person checks what the user was shown and what the answer meant.
+- Which shell commands audit reads: simple commands joined by `;`, `&&`, `||`, `|` and new lines,
+  with quotes, backslash escapes, redirections (`>`, `>>`, `2>&1`, `<`) and here-documents. A wf
+  call counts only when `wf` is the command itself (`wf …`, `/path/wf …`, `env … wf …`,
+  `python3 -m wf.cli …`, `python3 /path/bin/wf …`). Commands with comments, `$( )`, backticks,
+  `( )` or `{ }`, a background `&`, loops or `if` are not read: they never count as evidence, and if
+  they name the run or wf they are a gap. Agents should call `wf` plainly.
+

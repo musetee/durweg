@@ -34,5 +34,7 @@ Work only through these commands; they print `ok run=<id> event=<n>` when they s
 - When the user is away, stop at a user gate: say where you stopped (`wf status <run>`) and wait.
 - At the end: `wf check <run>`, then `wf render <run>` for a readable `run.md`. Report what
   `check` printed, including refusals and notes, not only "done".
+- Call `wf` plainly (one command per line or joined with `&&`): no comments, `$( )`, loops or
+  background `&` around it, or the audit cannot count the call.
 - Start a run with `wf start <workflow-folder> <slug> [--trial]`; always pass the run folder to the
   commands that change it.

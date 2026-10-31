@@ -418,7 +418,7 @@ class Ordering(WfCase):
         self.tr.bash(cmd, r.stdout + r.stderr)
         rc, out = self.audit()
         self.assertEqual(rc, 2, out)
-        self.assertIn("order inside this call is uncertain", out)
+        self.assertIn("outside the shell subset", out)
 
     def test_failed_write_tool_is_ignored(self):
         self.start()
@@ -667,8 +667,8 @@ class Quoting(WfCase):
 
     def test_unbalanced_quote_is_a_gap_not_evidence(self):
         rc, out = self.cached(lambda s: f"echo 'oops; wf {s} {self.run} topic")
-        self.assertEqual(rc, 1, out)          # no evidence for the events
-        self.assertIn("quoting audit cannot follow", out)
+        self.assertNotEqual(rc, 0, out)       # never PASS: no evidence for the events
+        self.assertIn("outside the shell subset", out)
 
     def test_semicolon_inside_quote_argument_of_a_real_call(self):
         self.start()
@@ -692,3 +692,52 @@ class Quoting(WfCase):
         rc, out = self.audit()
         self.assertNotIn("violation", out)
         self.assertIn("event=3 propose", r.stdout)
+
+
+class Subset(WfCase):
+    """WP-C-001 round 4: commands outside the supported shell subset are never evidence."""
+
+    def cached(self, render):
+        return Quoting.cached(self, render)
+
+    def test_comment_hides_wf(self):
+        rc, out = self.cached(lambda s: f"echo example # ; wf {s} {self.run} topic;\ncat cache")
+        self.assertNotEqual(rc, 0, out)
+        self.assertIn("outside the shell subset", out)
+
+    def test_command_substitution(self):
+        rc, out = self.cached(lambda s: f"echo $(wf {s} {self.run} topic); cat cache")
+        self.assertNotEqual(rc, 0, out)
+
+    def test_group_and_background(self):
+        for render in (lambda s: f"{{ wf {s} {self.run} topic; }}; cat cache",
+                       lambda s: f"(wf {s} {self.run} topic) && cat cache",
+                       lambda s: f"wf {s} {self.run} topic & cat cache"):
+            self.tearDown()
+            self.setUp()
+            rc, out = self.cached(render)
+            self.assertNotEqual(rc, 0, out)
+
+    def test_hash_inside_a_word_is_not_a_comment(self):
+        from wf.audit import _segments
+        self.assertEqual(_segments("echo a#b; wf begin R s"), ["echo a#b", " wf begin R s"])
+        self.assertIsNone(_segments("echo a #b; wf begin R s"))
+        self.assertIsNone(_segments("if true; then wf begin R s; fi"))
+        self.assertEqual(_segments("wf done R s 2>&1 | tail -3"), ["wf done R s 2>&1 ", " tail -3"])
+
+    def test_unreadable_command_far_away_does_not_hide_a_missing_event(self):
+        import datetime
+        self.start()
+        self.full()
+        # drop the transcript evidence of the last done (call + result) ...
+        self.tr.lines = self.tr.lines[:-2]
+        # ... and add an unreadable command naming wf ten minutes later
+        later = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=10))
+        stamp = later.isoformat().replace("+00:00", "Z")
+        self.tr._add({"type": "assistant", "timestamp": stamp, "message": {"role": "assistant", "content": [
+            {"type": "tool_use", "id": "toolu_late", "name": "Bash", "input": {"command": "echo x # wf"}}]}})
+        self.tr._add({"type": "user", "timestamp": stamp, "message": {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "toolu_late", "content": "x"}]}})
+        rc, out = self.audit()
+        self.assertEqual(rc, 1, out)
+        self.assertIn("no successful wf call", out)
