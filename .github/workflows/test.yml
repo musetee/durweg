@@ -184,6 +184,7 @@ jobs:
           & "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd" uninstall
           if ($LASTEXITCODE -ne 0) { throw "uninstall" }
           if (Test-Path "$HOME\.gemini\config\skills\run-workflow") { throw "Antigravity skill not removed" }
+          Start-Sleep -Seconds 6     # the uninstall removes the program folder a moment later; let it finish
       - name: install from the published GitHub release, download path (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
