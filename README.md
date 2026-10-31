@@ -57,6 +57,8 @@ weekly-report with durweg."
 
 - Write a workflow by hand: [docs/workflow-format.md](docs/workflow-format.md).
 - Check a run: `durweg check <run folder>`.
+- Change the language: `durweg config language en` (or `zh`). To install somewhere else (on Windows: also
+  into WSL), run the installer again and type `c` when it shows your last choices.
 - Remove Durweg (keeps `~/Durweg` and your runs): `durweg uninstall`.
 - Compare a run with the agent's session files: the optional plugin [durweg-audit](https://github.com/musetee/durweg-audit).
 

@@ -36,6 +36,7 @@ Durweg 让 AI agent（Claude Code、Codex）按你自己的方法干活，每次
 
 - 手写一个工作流：[docs/workflow-format_cn.md](docs/workflow-format_cn.md)。
 - 核对一次运行：`durweg check <运行文件夹>`。
+- 改语言：`durweg config language zh`（或 `en`）。想装到别的地方（在 Windows 上也可以再装进 WSL），就再运行一次安装程序，它显示上次的选择时输入 `c`。
 - 卸载 Durweg（保留 `~/Durweg` 和你的运行记录）：`durweg uninstall`。
 - 把一次运行和 agent 自己的会话记录对照：可选插件 [durweg-audit](https://github.com/musetee/durweg-audit)。
 
