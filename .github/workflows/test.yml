@@ -116,3 +116,20 @@ jobs:
           $D = "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd"
           if (-not ((Get-Content $D) -match 'Python312')) { throw "launcher does not use the downloaded Python" }
           & $D --version; if ($LASTEXITCODE -ne 0) { throw "version" }
+      - name: rerun probe of WSL never blocks (V1-C-009)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          function Probe($exe, $arg) {
+            $env:DURWEG_TEST_PROBE = '1'; $env:DURWEG_TEST_WSL_EXE = $exe; $env:DURWEG_TEST_WSL_ARGS = $arg
+            $env:DURWEG_TEST_WSL_TIMEOUT_MS = '3000'
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            $out = cmd /c Durweg-Install.bat | Out-String
+            if ($LASTEXITCODE -ne 0) { throw "probe exit $LASTEXITCODE" }
+            if ($sw.Elapsed.TotalSeconds -gt 30) { throw "probe took $($sw.Elapsed.TotalSeconds) s" }
+            return $out
+          }
+          if ((Probe 'cmd.exe' '/c exit 0') -notmatch 'installed=True') { throw "success not seen" }
+          if ((Probe 'cmd.exe' '/c exit 1') -notmatch 'installed=False') { throw "failure taken as installed" }
+          if ((Probe 'C:\no\such\wsl.exe' '') -notmatch 'installed=False') { throw "missing wsl.exe not handled" }
+          if ((Probe 'ping.exe' '-n 60 127.0.0.1') -notmatch 'installed=False') { throw "hanging WSL not handled" }

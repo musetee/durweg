@@ -26,16 +26,31 @@ New-Item -ItemType Directory -Force -Path $Local | Out-Null
 function Read-Json($p) { if (Test-Path $p) { try { return [IO.File]::ReadAllText($p) | ConvertFrom-Json } catch { } }; return $null }
 function Write-Json($p, $o) { [IO.File]::WriteAllText($p, ($o | ConvertTo-Json -Depth 5), $Utf8) }
 
+# Is Durweg installed inside WSL? Any failure, a missing wsl.exe or a WSL that does not answer
+# within the time limit counts as "not confirmed", so the rerun question still appears (V1-C-009).
+function Test-WslDurweg {
+    $exe = if ($env:DURWEG_TEST_WSL_EXE) { $env:DURWEG_TEST_WSL_EXE } else { 'wsl.exe' }
+    $arg = if ($env:DURWEG_TEST_WSL_ARGS) { $env:DURWEG_TEST_WSL_ARGS } else { '-e sh -c "test -x ~/.local/bin/durweg"' }
+    $ms = if ($env:DURWEG_TEST_WSL_TIMEOUT_MS) { [int]$env:DURWEG_TEST_WSL_TIMEOUT_MS } else { 15000 }
+    $p = $null
+    try {
+        $si = New-Object System.Diagnostics.ProcessStartInfo $exe, $arg
+        $si.UseShellExecute = $false; $si.CreateNoWindow = $true
+        $si.RedirectStandardOutput = $true; $si.RedirectStandardError = $true
+        $p = [Diagnostics.Process]::Start($si)
+        if (-not $p.WaitForExit($ms)) { try { $p.Kill() } catch { }; return $false }
+        return ($p.ExitCode -eq 0)
+    } catch { return $false } finally { if ($p) { $p.Dispose() } }
+}
+if ($env:DURWEG_TEST_PROBE) { Write-Host "probe installed=$(Test-WslDurweg)"; exit 0 }
+
 # ---- remembered choices (a second double-click after a restart goes on without asking) ---------
 $SetupFile = Join-Path $Local 'setup.json'
 $setup = Read-Json $SetupFile
 $Lang = $env:DURWEG_LANG
 if (-not $Lang -and $setup -and $setup.language -and -not $env:DURWEG_TARGET) {
     # a rerun: say what is there, ask whether to change it; Enter keeps (e.g. after the WSL restart)
-    if ($setup.target -eq 'wsl') {
-        & wsl.exe -e sh -c 'test -x "$HOME/.local/bin/durweg"' 2>$null | Out-Null
-        $installed = ($LASTEXITCODE -eq 0)
-    } else { $installed = Test-Path (Join-Path $Local 'bin\durweg.cmd') }
+    if ($setup.target -eq 'wsl') { $installed = Test-WslDurweg } else { $installed = Test-Path (Join-Path $Local 'bin\durweg.cmd') }
     $zhL = if ($setup.language -eq 'zh') { '中文' } else { '英文' }
     $enL = if ($setup.language -eq 'zh') { 'Chinese' } else { 'English' }
     $where = if ($setup.target -eq 'wsl') { 'WSL' } else { 'Windows' }
