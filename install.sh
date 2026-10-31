@@ -11,7 +11,7 @@
 set -uo pipefail
 
 AIAGENTS_REPO="${DURWEG_AIAGENTS_REPO:-musetee/aiagents}"
-AIAGENTS_COMMIT="${DURWEG_AIAGENTS_COMMIT:-b0485591a299b37013f9b6f9bac9bb4215973a63}"   # reviewed commit of branch durweg-setup
+AIAGENTS_COMMIT="${DURWEG_AIAGENTS_COMMIT:-ffc3c3b8755364f5d95854bbd203d72b2e835e6e}"   # reviewed commit of branch durweg-setup
 DURWEG_REPO="${DURWEG_REPO:-musetee/durweg}"
 AIAGENTS_DIR="${DURWEG_AIAGENTS_DIR:-$HOME/aiagents}"
 RUNS="$HOME/durweg-runs"
