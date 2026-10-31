@@ -59,7 +59,7 @@ weekly-report with durweg."
 - Check a run: `durweg check <run folder>`.
 - Change the language: `durweg config language en` (or `zh`). To install somewhere else (on Windows: also
   into WSL), run the installer again and type `c` when it shows your last choices.
-- Remove Durweg (keeps `~/Durweg` and your runs): `durweg uninstall`.
+- Remove Durweg (keeps `~/Durweg` and your runs): `durweg uninstall`, see [docs/uninstall.md](docs/uninstall.md).
 - Compare a run with the agent's session files: the optional plugin [durweg-audit](https://github.com/musetee/durweg-audit).
 
 ## Common problems
