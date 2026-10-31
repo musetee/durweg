@@ -3,6 +3,7 @@ this working tree (plan 2.1, V1-R-002). No network: DURWEG_SOURCE points at the 
 
 import hashlib
 import json
+import re
 import os
 import shutil
 import subprocess
@@ -232,3 +233,14 @@ class Install(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WindowsLauncher(unittest.TestCase):
+    def test_every_wsl_call_skips_the_shell(self):
+        """wsl.exe without -e hands its words to bash, which breaks on paths like Durweg(1)."""
+        text = (ROOT / "Durweg-Install.bat").read_text(encoding="utf-8")
+        calls = [l.strip() for l in text.splitlines() if re.search(r"&\s*wsl\.exe\b", l)]
+        self.assertTrue(calls)
+        for line in calls:
+            self.assertRegex(line, r"&\s*wsl\.exe\s+-e\s", line)
+

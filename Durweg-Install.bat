@@ -125,7 +125,12 @@ if ($Target -eq 'wsl') {
         exit 0
     }
     if ($rc) {
-        $tar = (& wsl.exe wslpath -u ((Join-Path $Here $rc.tar) -replace '\\', '/')).Trim()
+        # -e runs wslpath directly, without a shell: a folder like "Durweg(1)" stays one path
+        $tar = & wsl.exe -e wslpath -u ((Join-Path $Here $rc.tar) -replace '\\', '/')
+        if ($LASTEXITCODE -ne 0 -or -not $tar) {
+            Stop-Install "WSL cannot read the package next to this file: $Here" "WSL 读不到这个文件旁边的安装包：$Here"
+        }
+        $tar = ([string]$tar).Trim()
         $cmd = "export DURWEG_LANG=$Lang DURWEG_VERSION=$Version DURWEG_SOURCE=$(Q $tar) DURWEG_SHA256=$($rc.tar_sha256); " +
                "s=`$(mktemp); tar -xzOf `"`$DURWEG_SOURCE`" durweg-$Version/install.sh > `"`$s`" && bash `"`$s`""
     } else {
