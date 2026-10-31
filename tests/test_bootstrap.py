@@ -33,6 +33,7 @@ def git(cwd, *args):
                           env=dict(os.environ, **GIT_ENV)).stdout.strip()
 
 
+@unittest.skipIf(os.name == "nt" or shutil.which("bash") is None, "bash bootstrap: Linux and macOS only")
 class Bootstrap(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="bootstrap-"))

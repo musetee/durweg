@@ -193,8 +193,8 @@ def gate_command(run_dir, g, ctx):
                WF_STATE=str(Path(run_dir) / ".wf" / "state.json"))
     out = Path(run_dir) / ".wf" / "gates" / f"{ctx['step']}-{ctx['index']}.out"
     try:
-        r = subprocess.run(argv, cwd=run_dir, capture_output=True, text=True,
-                           timeout=g.get("timeout", 60), env=env)
+        r = subprocess.run(argv, cwd=run_dir, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=g.get("timeout", 60), env=dict(env, PYTHONIOENCODING="utf-8"))
     except subprocess.TimeoutExpired:
         write_atomic(out, "timeout\n")
         return [f"command {' '.join(g['argv'])}: timed out after {g.get('timeout', 60)} s"]

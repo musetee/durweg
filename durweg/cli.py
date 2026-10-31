@@ -285,7 +285,15 @@ def cmd_audit(a):
 
 
 def main(argv=None):
+    for stream in (sys.stdout, sys.stderr):         # Windows consoles default to a legacy code page
+        if hasattr(stream, "reconfigure") and (stream.encoding or "").lower() not in ("utf-8", "utf8"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):
+                pass
     ap = argparse.ArgumentParser(prog="durweg", description=__doc__)
+    from . import __version__
+    ap.add_argument("--version", action="version", version=f"durweg {__version__}")
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("start", help="start a run of a workflow")
     p.add_argument("workflow", help="path to the workflow repository (with workflow.json)")

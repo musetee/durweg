@@ -50,12 +50,36 @@ def read_json(path):
 
 
 def _alive(pid):
+    """Whether a process with this pid is running. Never signals it: on Windows os.kill(pid, 0)
+    would terminate the process, so there OpenProcess + GetExitCodeProcess is used instead."""
+    if pid <= 0:
+        return False
+    if os.name == "nt":
+        import ctypes
+        from ctypes import wintypes
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.OpenProcess.restype = wintypes.HANDLE
+        k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+        k32.GetExitCodeProcess.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
+        k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        handle = k32.OpenProcess(0x1000, False, pid)        # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return ctypes.get_last_error() == 5             # access denied: it exists
+        try:
+            code = wintypes.DWORD()
+            if not k32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return True                                 # cannot tell: treat as alive
+            return code.value == 259                        # STILL_ACTIVE
+        finally:
+            k32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
     except PermissionError:
         return True
+    except OSError:
+        return False
     return True
 
 
@@ -83,7 +107,7 @@ class RunLock:
                     continue
                 raise WfError(f"run is locked by pid {holder.get('pid')} on {holder.get('host')} "
                               f"since {holder.get('t')} ({self.path})")
-            with os.fdopen(fd, "w") as f:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
                 json.dump(me, f)
             return self
         raise WfError(f"could not take the lock {self.path}")

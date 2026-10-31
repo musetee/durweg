@@ -1,9 +1,13 @@
 """wf audit against session transcripts (design 3.3, 7.2)."""
 
 import json
+import os
 import unittest
 
 from helpers import Transcript, WfCase
+
+if os.name == "nt":       # the audit replays bash transcripts; it becomes the durweg-audit plugin
+    raise unittest.SkipTest("audit tests run on Linux and macOS")
 
 
 class Audit(WfCase):

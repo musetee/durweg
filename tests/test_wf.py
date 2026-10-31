@@ -2,6 +2,9 @@
 
 import json
 import os
+import socket
+import subprocess
+import sys
 import unittest
 
 from helpers import WfCase, git
@@ -371,13 +374,13 @@ class LogIntegrity(WfCase):
 class Concurrency(WfCase):
     def test_lock_held_refused(self):
         self.start()
-        (self.run / ".wf/lock").write_text(json.dumps({"pid": os.getppid(), "host": os.uname().nodename, "t": "x"}))
+        (self.run / ".wf/lock").write_text(json.dumps({"pid": os.getppid(), "host": socket.gethostname(), "t": "x"}))
         out = self.wf("begin", self.run, "topic", expect=1)
         self.assertIn("locked", out)
 
     def test_stale_lock_taken_over(self):
         self.start()
-        (self.run / ".wf/lock").write_text(json.dumps({"pid": 999999, "host": os.uname().nodename, "t": "x"}))
+        (self.run / ".wf/lock").write_text(json.dumps({"pid": 999999, "host": socket.gethostname(), "t": "x"}))
         out = self.wf("begin", self.run, "topic")
         self.assertIn("stale lock", out)
 
@@ -397,7 +400,7 @@ class Concurrency(WfCase):
         self.wf("begin", self.run, "topic")
         self.put("steps/1-topic.json", {"options": ["a", "b"]})
         # a crash leaves a lock behind; the next command continues the same round
-        (self.run / ".wf/lock").write_text(json.dumps({"pid": 999999, "host": os.uname().nodename, "t": "x"}))
+        (self.run / ".wf/lock").write_text(json.dumps({"pid": 999999, "host": socket.gethostname(), "t": "x"}))
         self.wf("propose", self.run, "topic")
         self.assertIn("round 1", self.wf("status", self.run))
 
@@ -444,3 +447,44 @@ class RunArgument(WfCase):
 
 
 from durweg.cli import main  # noqa: E402
+
+
+class Portable(WfCase):
+    """Core lifecycle that must work on Linux, macOS and Windows alike (CI on all three)."""
+
+    def test_live_lock_is_never_taken_over(self):
+        from durweg.util import _alive
+        self.assertTrue(_alive(os.getpid()))
+        self.start()
+        (self.run / ".wf/lock").write_text(json.dumps({"pid": os.getpid(), "host": socket.gethostname(), "t": "x"}))
+        self.assertIn("locked", self.wf("begin", self.run, "topic", expect=1))
+
+    def test_dead_process_lock_is_recovered(self):
+        from durweg.util import _alive
+        p = subprocess.Popen([sys.executable, "-c", "pass"])
+        p.wait()
+        self.assertFalse(_alive(p.pid))
+        self.start()
+        (self.run / ".wf/lock").write_text(json.dumps({"pid": p.pid, "host": socket.gethostname(), "t": "x"}))
+        self.assertIn("stale lock", self.wf("begin", self.run, "topic"))
+
+    def test_spaces_and_chinese_in_paths(self):
+        self.runs = self.tmp / "我的 项目" / "runs"
+        self.start()
+        self.full()
+        rc, out = self.check()
+        self.assertEqual(rc, 0, out)
+        self.wf("render", self.run)
+        self.assertIn("dogs please", (self.run / "run.md").read_text(encoding="utf-8"))
+
+    def test_chinese_quote_and_values(self):
+        self.start()
+        self.step_topic(options=("猫", "狗"), answer="就要狗，谢谢", chosen="狗")
+        dec = json.loads((self.run / "steps/1-topic.decision.json").read_text(encoding="utf-8"))
+        self.assertEqual(dec["values"]["chosen"], "狗")
+
+    def test_version(self):
+        from helpers import ROOT
+        r = subprocess.run([sys.executable, str(ROOT / "bin" / "durweg"), "--version"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("durweg 1.0", r.stdout)
