@@ -396,7 +396,14 @@ def cmd_catalog(a):
     from . import catalog
     if a.action == "create-private":
         from . import publish
-        cid = publish.create_private(publish.login())
+        owner = publish.login()
+        what, why_not = publish.private_plan(owner)
+        if why_not:
+            raise WfError(why_not)
+        if not a.yes:
+            print(f"would {what}\nnothing was done yet; with the user's yes, run it again with --yes")
+            return 0
+        cid = publish.create_private(owner, adopt=what.startswith("use "))
         print(f"your private catalog is {cid}: {catalog.gitops.redact(catalog.configured()[cid]['url'])}\n"
               f"on another computer: durweg catalog add {cid} <this address>")
         return 0
@@ -537,6 +544,7 @@ def main(argv=None):
     p.add_argument("action", choices=["add", "list", "remove", "create-private"])
     p.add_argument("id", nargs="?", help="the catalog's name (public is the public catalog)")
     p.add_argument("url", nargs="?", help="add: the catalog's git address")
+    p.add_argument("--yes", action="store_true", help="create-private: the user said yes to what was shown")
     p = sub.add_parser("runs", help="list the runs started on this computer")
     p.add_argument("--rebuild", metavar="FOLDER", help="scan FOLDER for runs and add them to the index")
     p = sub.add_parser("config", help="show or change your settings: durweg config language en|zh")

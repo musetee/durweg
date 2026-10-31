@@ -89,6 +89,21 @@ def github_repo(url):
     return m.group(1) if m else None
 
 
+def catalog_ok(repo, info):
+    """None when the repository holds a valid catalog.json (format 1), else the reason. Read only:
+    a shallow clone into a temporary folder (U3: an existing repository is only read)."""
+    url = (info or {}).get("url")
+    if not url:
+        return "GitHub does not show it to you"
+    with _tmpdir() as tmp:
+        try:
+            gitops.run(["clone", "-q", "--depth", "1", "--", url, str(Path(tmp) / "c")], url=url)
+            catalog._parse(repo, Path(tmp) / "c")
+        except WfError as e:
+            return f"it holds no valid catalog.json ({e})"
+    return None
+
+
 def private_ok(info):
     """None when a catalog repository may hold private workflows, else the reason (revision 3)."""
     if not info:
@@ -138,9 +153,9 @@ def _license_text(choice, owner):
 def files_of(wf, src, license_choice, case):
     """[(relative path, source path or None, text or None)] - exactly what goes into the repository."""
     out = [(rel, src / rel, None) for rel in workflow.snapshot_sources(wf)]
-    readme = next((p for p in ("README.md", "README_cn.md") if (src / p).is_file()), None)
+    # a README.md always (the public catalog needs one); a README_cn.md of the folder goes along
     out += [(p, src / p, None) for p in ("README.md", "README_cn.md") if (src / p).is_file()]
-    if not readme:
+    if not (src / "README.md").is_file():
         out.append(("README.md", None, _readme(wf)))
     own_license = next((p for p in ("LICENSE", "LICENSE.md", "LICENSE.txt") if (src / p).is_file()), None)
     if own_license:
@@ -263,7 +278,7 @@ def _catalog_plan(name, visibility, owner, answer, licensed):
     target = f"{owner}/{PRIVATE_NAME}"
     info = repo_info(target)
     if info:
-        reason = private_ok(info)
+        reason = private_ok(info) or catalog_ok(target, info)
         if reason:
             return {"do": "nothing", "notes": [f"{target} exists but cannot be your private catalog: {reason}"]}
         q = f"use your existing private repository {target} as your private catalog? (--catalog yes or --catalog no)"
@@ -316,7 +331,7 @@ def _sync(p):
         dst = stage / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         if srcp is not None:
-            shutil.copyfile(srcp, dst)
+            shutil.copy2(srcp, dst)                 # keeps the executable bit of scripts (V11-C-013)
         elif rel == "LICENSE":
             dst.write_text(_license_text(p["license"], p["owner"]), encoding="utf-8")
         else:
@@ -357,7 +372,7 @@ def publish(p):
             write_json(library.home() / "library.json", data)
     try:
         out += _do_catalog(p, url)
-    except WfError as e:
+    except (WfError, OSError, ValueError) as e:
         out.append(f"the workflow is published, but the catalog step did not work: {e}")
     return out
 
@@ -387,33 +402,41 @@ def _do_catalog(p, url):
     reason = private_ok(repo_info(c["target"]))
     if reason:
         return [f"not added to your private catalog {c['id']}: {reason}; the workflow is published all the same"]
-    _edit_catalog(c["target"], p["name"], _entry(p, url), branch=None)
+    _edit_catalog(c["target"], p["name"], _entry(p, url))
     catalog.refresh(c["id"], catalog.configured()[c["id"]]["url"])
     return [f"added {p['name']} to your private catalog {c['id']} ({c['target']})"]
 
 
-def _edit_catalog(target, name, entry, branch):
-    """Clone the catalog repository, add or replace one entry, push (to `branch`, or its default)."""
-    info = repo_info(target) or {}
-    url = info.get("url")
-    if not url:
-        raise WfError(f"{target} cannot be read")
+def _edit_catalog(source, name, entry, dest=None, branch=None):
+    """Clone the newest catalog.json of `source`, add or replace one entry, and push: to `source`'s
+    default branch, or (a pull request) to `branch` of `dest`, replacing an earlier version of that
+    branch. A repository without a valid catalog.json is never written to (V11-C-011)."""
+    src = repo_info(source) or {}
+    if not src.get("url"):
+        raise WfError(f"{source} cannot be read")
+    to = repo_info(dest) if dest else src
+    if not (to or {}).get("url"):
+        raise WfError(f"{dest} cannot be read")
     with _tmpdir() as tmp:
         work = Path(tmp) / "c"
-        gitops.clone(url, work)
+        gitops.clone(src["url"], work)
+        catalog._parse(source, work)                               # refuses a missing or broken one
         f = work / "catalog.json"
-        data = read_json(f) if f.is_file() else {"format": 1, "workflows": {}}
-        catalog._parse_text(target, json.dumps(data))          # refuses anything that is not format 1
+        try:
+            data = read_json(f)
+        except (OSError, ValueError) as e:
+            raise WfError(f"{source}: catalog.json cannot be read ({e})")
         data["workflows"][name] = entry
         f.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        if branch:
-            gitops.run(["checkout", "-q", "-b", branch], cwd=work)
         gitops.run(["add", "catalog.json"], cwd=work)
-        owner = target.split("/")[0]
+        owner = (dest or source).split("/")[0]
         ident = ["-c", f"user.name={owner}", "-c", f"user.email={owner}@users.noreply.github.com"]
         if gitops.run(["status", "--porcelain"], cwd=work).strip():
             gitops.run([*ident, "commit", "-q", "-m", f"Add {name}"], cwd=work)
-        gitops.run(["push", "-q", "origin", f"HEAD:{branch}" if branch else "HEAD"], cwd=work, url=url)
+        if branch:
+            gitops.run(["push", "-q", "--", to["url"], f"+HEAD:refs/heads/{branch}"], cwd=work, url=to["url"])
+        else:
+            gitops.run(["push", "-q", "origin", "HEAD"], cwd=work, url=src["url"])
 
 
 def _pull_request(p, upstream, url):
@@ -426,24 +449,51 @@ def _pull_request(p, upstream, url):
         gh("repo", "fork", upstream, "--clone=false")
         target = f"{me}/{upstream.split('/')[1]}"
         head = f"{me}:{branch}"
-    _edit_catalog(target, p["name"], _entry(p, url), branch=branch)
+    # from the catalog's newest version, not from an older fork (V11-C-012)
+    _edit_catalog(upstream, p["name"], _entry(p, url), dest=target, branch=branch)
     r = gh("pr", "create", "--repo", upstream, "--head", head, "--title", f"Add {p['name']}",
-           "--body", f"Adds the workflow {p['name']} ({url}), published with `durweg publish`.")
-    return f"pull request to the public catalog: {r.stdout.strip() or 'opened'}"
+           "--body", f"Adds the workflow {p['name']} ({url}), published with `durweg publish`.", check=False)
+    if r.returncode == 0:
+        return f"pull request to the public catalog: {r.stdout.strip() or 'opened'}"
+    found = gh("pr", "list", "--repo", upstream, "--head", branch, "--state", "open", "--json", "url",
+               "--jq", ".[0].url", check=False).stdout.strip()
+    if found:
+        return f"updated the open pull request to the public catalog: {found}"
+    raise WfError(f"the pull request could not be opened: {gitops.redact((r.stderr or '').strip()[-200:])}")
+
+
+def private_plan(owner):
+    """For `durweg catalog create-private` without --yes: (what would happen, None) or (None, why not)."""
+    target = f"{owner}/{PRIVATE_NAME}"
+    info = repo_info(target)
+    if not info:
+        return f"make the private repository {target} with an empty catalog and use it as your private catalog", None
+    reason = private_ok(info) or catalog_ok(target, info)
+    if reason:
+        return None, f"{target} exists and cannot be your private catalog: {reason}"
+    return f"use your existing private repository {target} as your private catalog", None
 
 
 def create_private(owner, adopt=None):
-    """Make (or, after the user said yes, use) owner/durweg-workflows-private as the private catalog
-    and record it as private_default. Returns the catalog id."""
+    """Make owner/durweg-workflows-private, or - only with adopt=True, after the user said yes -
+    use an existing one, and record it as private_default. An existing repository must be private,
+    writable for you and hold a valid catalog.json; it is only read. Nothing is written to
+    catalogs.json before the catalog was downloaded and checked (V11-C-011). Returns the id."""
     target = f"{owner}/{PRIVATE_NAME}"
+    cid = "private"
+    existing = catalog._load()["catalogs"].get(cid)
     info = repo_info(target)
+    if existing and not (info and catalog.same_url(existing.get("url", ""), info.get("url", ""))):
+        raise WfError(f"a catalog named {cid} exists already ({gitops.redact(existing.get('url', ''))})")
     if info:
-        reason = private_ok(info)
+        if adopt is not True:
+            raise WfError(f"{target} exists already; using it as your private catalog needs the user's yes")
+        reason = private_ok(info) or catalog_ok(target, info)
         if reason:
             raise WfError(f"{target} cannot be your private catalog: {reason}")
-        if adopt is False:
-            raise WfError(f"{target} exists already; it was not made by Durweg just now")
     else:
+        if adopt is True:
+            raise WfError(f"{target} is not on GitHub (any more)")
         gh("repo", "create", target, "--private", "--description", "My private Durweg catalog")
         info = repo_info(target) or {}
         reason = private_ok(info)
@@ -462,15 +512,14 @@ def create_private(owner, adopt=None):
             gitops.run([*ident, "commit", "-q", "-m", "Private Durweg catalog"], cwd=work)
             gitops.run(["push", "-q", info["url"], "HEAD:main"], cwd=work, url=info["url"])
     url = info["url"]
-    cid = "private"
+    reason = catalog.refresh(cid, url)                       # downloads and checks it first
+    if reason:
+        raise WfError(f"{target} cannot be read as a catalog ({reason}); nothing was recorded")
     with catalog._lock():
         data = catalog._load()
-        existing = data["catalogs"].get(cid)
-        if existing and not catalog.same_url(existing.get("url", ""), url):
-            raise WfError(f"a catalog named {cid} exists already ({gitops.redact(existing['url'])})")
-        data["catalogs"][cid] = {"url": url, "repo": target, "added": now()}
+        data["catalogs"][cid] = dict(data["catalogs"].get(cid, {}), url=url, repo=target)
+        data["catalogs"][cid].setdefault("added", now())
         data["private_default"] = cid
         data.pop("private_declined", None)
         catalog._save(data)
-    catalog.refresh(cid, url)
     return cid

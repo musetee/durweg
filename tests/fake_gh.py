@@ -62,8 +62,17 @@ elif args[:2] == ["repo", "fork"]:
         shutil.copytree(st["repos"][up]["url"], bare(mine))
         st["repos"][mine] = {"visibility": "PUBLIC", "viewerPermission": "ADMIN", "url": bare(mine)}
 elif args[:2] == ["pr", "create"]:
-    st.setdefault("prs", []).append({"repo": opt("--repo"), "head": opt("--head"), "title": opt("--title")})
-    print(f"https://github.com/{opt('--repo')}/pull/{len(st['prs'])}")
+    if any(p["repo"] == opt("--repo") and p["head"] == opt("--head") for p in st.get("prs", [])):
+        print(f"a pull request for branch \"{opt('--head')}\" already exists", file=sys.stderr)
+        rc = 1
+    else:
+        st.setdefault("prs", []).append({"repo": opt("--repo"), "head": opt("--head"), "title": opt("--title")})
+        print(f"https://github.com/{opt('--repo')}/pull/{len(st['prs'])}")
+elif args[:2] == ["pr", "list"]:
+    for i, p in enumerate(st.get("prs", []), 1):
+        if p["repo"] == opt("--repo") and p["head"].split(":")[-1] == opt("--head"):
+            print(f"https://github.com/{p['repo']}/pull/{i}")
+            break
 else:
     print(f"fake gh: not supported: {args}", file=sys.stderr)
     rc = 2
