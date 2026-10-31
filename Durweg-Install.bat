@@ -15,7 +15,7 @@ exit /b %RC%
 #=== ps1 ===
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
-$Version = 'v1.1.0'
+$Version = 'v1.1.1'
 $Repo = 'musetee/durweg'
 $Here = Split-Path -Parent $env:DURWEG_SELF
 $Local = Join-Path $env:LOCALAPPDATA 'Durweg'
