@@ -8,6 +8,7 @@ import unittest
 from pathlib import Path
 
 from helpers import EXAMPLE, WfCase, git
+from durweg.util import rmtree
 
 
 def bare(src_dir, dest):
@@ -59,7 +60,7 @@ class Available(CatalogCase):
 
     def test_offline_shows_the_cache_with_its_date(self):
         self.wf("library", "available")
-        shutil.rmtree(self.pub_url)                                  # the remote is gone
+        rmtree(self.pub_url)                                         # the remote is gone (read-only git files on Windows)
         out = self.wf("library", "available")
         self.assertIn("public:mini", out)
         self.assertIn("could not be refreshed", out)
@@ -196,6 +197,121 @@ class Catalogs(CatalogCase):
         (work / "catalog.json").write_text(json.dumps({"workflows": []}))
         url = str(bare(work, self.remotes / "wrong.git"))
         self.assertIn("not format 1", self.wf("catalog", "add", "wrong", url, expect=1))
+
+
+class ReviewRegressions(CatalogCase):
+    """Codex V11-C-001…004."""
+
+    def test_c001_concurrent_add_of_one_name_keeps_the_winner(self):
+        from durweg import gitops, library
+        real = gitops.clone
+        calls = []
+
+        def clone(url, dest):
+            calls.append(dest)
+            if len(calls) == 1:                    # A is cloning: B starts and finishes meanwhile
+                self.assertEqual(library.add(self.mini_url, "race")[0], "race")
+            return real(url, dest)
+        gitops.clone = clone
+        try:
+            with self.assertRaises(Exception) as cm:
+                library.add(self.mini_url, "race")
+        finally:
+            gitops.clone = real
+        self.assertIn("already", str(cm.exception))
+        dest = Path(os.environ["DURWEG_HOME"]) / "workflows" / "race"
+        self.assertTrue((dest / "workflow.json").is_file())            # B's install is intact
+        self.assertIn("race", self.lib())
+        self.assertEqual([p.name for p in dest.parent.iterdir() if p.name.startswith(".add-")], [])
+        self.wf("start", "race", "r", "--runs", self.runs)
+
+    def test_c002_broken_remote_keeps_the_last_good_cache(self):
+        self.assertIn("public:mini", self.wf("library", "available"))
+        work = self.tmp / "work-cat-pub"
+        (work / "catalog.json").write_text("{}")
+        git(work, "commit", "-q", "-am", "break")
+        git(work, "push", "-q", self.pub_url, "main")
+        out = self.wf("library", "available")
+        self.assertIn("public:mini", out)
+        self.assertIn("could not be refreshed", out)
+        self.assertIn("not format 1", out)
+        self.wf("library", "add", "mini")                                # still installable by name
+
+    def test_c002_changed_address_keeps_cache_until_the_new_one_works(self):
+        self.wf("library", "available")
+        os.environ["DURWEG_PUBLIC_CATALOG"] = str(self.tmp / "moved.git")   # not there
+        out = self.wf("library", "available")
+        self.assertIn("public:mini", out)
+        self.assertIn("could not be refreshed", out)
+
+    def test_c003_no_credentials_in_any_message(self):
+        home = Path(os.environ["DURWEG_HOME"])
+        home.mkdir(parents=True, exist_ok=True)
+        (home / "catalogs.json").write_text(json.dumps({"format": 1, "catalogs": {
+            "team": {"url": "https://user:secret-token@127.0.0.1:9/repo.git"}}}))
+        outs = [self.wf("catalog", "add", "team", "https://127.0.0.1:9/other.git", expect=1),
+                self.wf("catalog", "add", "tm", "https://user:secret-token@nowhere", expect=1),
+                self.wf("catalog", "list"),
+                self.wf("library", "available"),
+                self.wf("library", "add", "https://user:secret-token@127.0.0.1:9/x.git", expect=1)]
+        for out in outs:
+            self.assertNotIn("secret-token", out)
+
+    def test_c004_own_ssh_command_keeps_its_key_and_gets_batchmode(self):
+        from durweg import gitops
+        old = os.environ.get("GIT_SSH_COMMAND")
+        try:
+            os.environ["GIT_SSH_COMMAND"] = "ssh -i /tmp/key -o BatchMode=no"
+            cmd = gitops.env()["GIT_SSH_COMMAND"]
+            self.assertTrue(cmd.startswith("ssh -o BatchMode=yes"), cmd)        # first value wins in ssh
+            self.assertIn("-i /tmp/key", cmd)
+            os.environ["GIT_SSH_COMMAND"] = '"C:\\Program Files\\Git\\usr\\bin\\ssh.exe" -i k'
+            self.assertIn('ssh.exe" -o BatchMode=yes -o ConnectTimeout=20 -i k', gitops.env()["GIT_SSH_COMMAND"])
+            os.environ["GIT_SSH_COMMAND"] = "mywrapper --x"
+            out = self.wf("catalog", "add", "team", "git@example.invalid:a/b.git", expect=1)
+            self.assertIn("cannot stop from asking", out)
+        finally:
+            if old is None:
+                os.environ.pop("GIT_SSH_COMMAND", None)
+            else:
+                os.environ["GIT_SSH_COMMAND"] = old
+
+    @unittest.skipIf(os.name == "nt", "a fake ssh without an extension does not run on Windows")
+    def test_c004_fake_ssh_really_gets_batchmode_first(self):
+        fake = self.tmp / "bin" / "ssh"
+        fake.parent.mkdir()
+        log = self.tmp / "ssh-args.txt"
+        fake.write_text(f"#!/bin/sh\nprintf '%s\\n' \"$@\" > '{log}'\nexit 255\n")
+        fake.chmod(0o755)
+        old = os.environ.get("GIT_SSH_COMMAND")
+        os.environ["GIT_SSH_COMMAND"] = f"{fake} -i /tmp/key"
+        try:
+            self.wf("catalog", "add", "team", "ssh://git@example.invalid/a/b.git", expect=1)
+        finally:
+            if old is None:
+                os.environ.pop("GIT_SSH_COMMAND", None)
+            else:
+                os.environ["GIT_SSH_COMMAND"] = old
+        args = log.read_text().split("\n")
+        self.assertEqual(args[:4], ["-o", "BatchMode=yes", "-o", "ConnectTimeout=20"])
+        self.assertIn("/tmp/key", args)
+
+    def test_c004_core_sshcommand_is_honoured(self):
+        from durweg import gitops
+        cfg = self.tmp / "gitconfig"
+        cfg.write_text("[core]\n\tsshCommand = ssh -i /tmp/cfgkey\n")
+        saved = {k: os.environ.get(k) for k in ("GIT_CONFIG_GLOBAL", "GIT_SSH_COMMAND")}
+        os.environ["GIT_CONFIG_GLOBAL"] = str(cfg)
+        os.environ.pop("GIT_SSH_COMMAND", None)
+        try:
+            self.assertIn("-i /tmp/cfgkey", gitops.env()["GIT_SSH_COMMAND"])
+            self.assertIn("BatchMode=yes", gitops.env()["GIT_SSH_COMMAND"])
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
 
 
 class GitReasons(unittest.TestCase):

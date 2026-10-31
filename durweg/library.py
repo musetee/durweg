@@ -39,11 +39,26 @@ def _load(name, key):
 
 
 class _IndexLock(RunLock):
-    """The same O_EXCL lock as a run's, on ~/Durweg/.<name>.lock."""
+    """The same O_EXCL lock as a run's, on ~/Durweg/.<name>.lock. Held only for a moment, so a
+    second process waits for it (up to WAIT seconds) instead of failing at once."""
+
+    WAIT = 15
 
     def __init__(self, name):
         self.path = home() / f".{name}.lock"
         self.note = ""
+
+    def __enter__(self):
+        import time
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        until = time.monotonic() + self.WAIT
+        while True:
+            try:
+                return super().__enter__()
+            except WfError:
+                if time.monotonic() >= until:
+                    raise
+                time.sleep(0.05)
 
 
 def looks_like_path(arg):
@@ -100,6 +115,9 @@ def _add_from_catalog(wf_name, name, only=None, hits=None, notes=None):
 
 
 def _add_git(url, name, catalog_id=None):
+    """Clone into a folder of this call's own, check it, and only then, under the library lock,
+    move it into place and register it. A failure removes only what this call created."""
+    import uuid
     from . import gitops
     gitops.need_git("adding a workflow from a git address")
     _check_name(name)
@@ -110,22 +128,34 @@ def _add_git(url, name, catalog_id=None):
     if dest.exists():
         raise WfError(f"{dest} exists already")
     dest.parent.mkdir(parents=True, exist_ok=True)
+    stage = dest.parent / f".add-{name}-{uuid.uuid4().hex[:12]}"
     try:
-        gitops.clone(url, dest)
-    except gitops.GitFailed as e:
-        rmtree(dest)
-        raise WfError(f"git clone of {gitops.redact(url)} failed: {e}")
-    try:
-        workflow.load(dest)                       # validates workflow.json
-        branch, commit = gitops.head_state(dest)
+        try:
+            gitops.clone(url, stage)
+        except gitops.GitFailed as e:
+            raise WfError(f"git clone of {gitops.redact(url)} failed: {e}")
+        workflow.load(stage)                      # validates workflow.json
+        branch, commit = gitops.head_state(stage)
         entry = {"path": str(dest), "source": "git", "url": url, "added": now(),
                  "branch": branch, "commit": commit}
         if catalog_id:
             entry["catalog"] = catalog_id
-        _register(name, entry)
-    except BaseException:
-        rmtree(dest)                              # nothing half-installed is left behind
-        raise
+        with _IndexLock("library"):
+            data = _load("library.json", "workflows")
+            if name in data["workflows"]:
+                raise WfError(f"a workflow named {name} is in the library already "
+                              f"({data['workflows'][name]['path']}); choose another with --name")
+            if dest.exists():
+                raise WfError(f"{dest} exists already")
+            os.replace(stage, dest)
+            try:
+                data["workflows"][name] = entry
+                write_json(home() / "library.json", data)
+            except BaseException:
+                os.replace(dest, stage)           # ours: we moved it there a moment ago
+                raise
+    finally:
+        rmtree(stage)                             # only this call's own folder
     return name, dest, None
 
 

@@ -1,8 +1,8 @@
 """git for the library and the catalogs: never asks, never waits for ever, never prints a token.
 
 Plan v1.1 C6: only the credentials already on this computer are used. Every call runs with prompts
-switched off (GIT_TERMINAL_PROMPT=0, GCM_INTERACTIVE=never, ssh BatchMode) and a time limit, and
-does not change any git setting. A failure becomes a short reason a person can act on.
+switched off (GIT_TERMINAL_PROMPT=0, GCM_INTERACTIVE=never, ssh BatchMode even when the user set
+their own ssh command) and a time limit, and does not change any git setting. A failure becomes a short reason a person can act on.
 """
 
 import os
@@ -21,12 +21,55 @@ def redact(text):
     return _CRED.sub(r"\1", text or "")
 
 
+_SSH_OPTS = "-o BatchMode=yes -o ConnectTimeout=20"
+_FIRST = re.compile(r"""^\s*("[^"]*"|'[^']*'|\S+)(.*)$""", re.S)
+
+
+def _user_ssh():
+    """The ssh command git would use: GIT_SSH_COMMAND, else core.sshCommand, else GIT_SSH."""
+    cmd = os.environ.get("GIT_SSH_COMMAND", "").strip()
+    if cmd:
+        return cmd
+    if shutil.which("git"):
+        try:
+            r = subprocess.run(["git", "config", "--get", "core.sshCommand"], capture_output=True, text=True,
+                               timeout=10, stdin=subprocess.DEVNULL)
+            if r.returncode == 0 and r.stdout.strip():
+                return r.stdout.strip()
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    prog = os.environ.get("GIT_SSH", "").strip()
+    return f'"{prog}"' if prog else ""
+
+
+def ssh_command():
+    """(command for GIT_SSH_COMMAND, None) or (None, reason). The user's own ssh command keeps its
+    key and options, with BatchMode put first (ssh uses the first value it sees for an option).
+    A wrapper that is not ssh cannot be made silent, so it is refused for ssh addresses."""
+    cmd = _user_ssh()
+    if not cmd:
+        return f"ssh {_SSH_OPTS}", None
+    m = _FIRST.match(cmd)
+    prog, rest = m.group(1), m.group(2)
+    base = os.path.basename(prog.strip("\"'").replace("\\", "/")).lower()
+    if base in ("ssh", "ssh.exe"):
+        return f"{prog} {_SSH_OPTS}{rest}", None
+    return None, (f"git is set to use {base} for ssh (GIT_SSH_COMMAND, core.sshCommand or GIT_SSH), "
+                  "which Durweg cannot stop from asking questions; use the https address, or plain ssh")
+
+
+def is_ssh(url):
+    u = (url or "").lower()
+    return u.startswith(("ssh://", "git+ssh://")) or bool(re.match(r"^[\w.-]+@[\w.-]+:", u))
+
+
 def env():
     e = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never", GIT_ASKPASS="",
              SSH_ASKPASS="", LC_ALL="C")
     e.pop("SSH_ASKPASS_REQUIRE", None)
-    if not e.get("GIT_SSH_COMMAND"):
-        e["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o ConnectTimeout=20"
+    cmd, _ = ssh_command()
+    if cmd:
+        e["GIT_SSH_COMMAND"] = cmd
     return e
 
 
@@ -61,6 +104,10 @@ def _reason(stderr, url):
 def run(args, cwd=None, url=None, timeout=TIMEOUT):
     """Run git; returns stdout. Raises GitFailed with a readable reason."""
     need_git("this")
+    if is_ssh(url):
+        cmd, reason = ssh_command()
+        if cmd is None:
+            raise GitFailed(reason, "other")
     try:
         r = subprocess.run(["git", *args], cwd=cwd, env=env(), capture_output=True, text=True,
                            timeout=timeout, stdin=subprocess.DEVNULL)

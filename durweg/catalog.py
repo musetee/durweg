@@ -11,6 +11,7 @@ only says where a workflow is: installing one clones the workflow's own reposito
 and `durweg start` never looks at catalogs.
 """
 
+import json
 import os
 import re
 from pathlib import Path
@@ -83,11 +84,10 @@ def same_url(a, b):
 
 
 # -- reading a catalog -----------------------------------------------------------------
-def _parse(cid, folder):
-    p = Path(folder) / "catalog.json"
+def _parse_text(cid, text):
     try:
-        data = read_json(p)
-    except (OSError, ValueError) as e:
+        data = json.loads(text)
+    except ValueError as e:
         raise WfError(f"catalog {cid}: catalog.json cannot be read ({e})")
     if not isinstance(data, dict) or data.get("format") != 1 or not isinstance(data.get("workflows"), dict):
         raise WfError(f"catalog {cid}: catalog.json is not format 1 with a \"workflows\" object")
@@ -100,29 +100,48 @@ def _parse(cid, folder):
     return out, bad
 
 
-def refresh(cid, url):
-    """Bring the cache of one catalog up to date. Returns None, or the reason it could not."""
-    dest = cache_dir(cid)
+def _parse(cid, folder):
     try:
-        if dest.is_dir():
-            try:
-                origin = gitops.run(["remote", "get-url", "origin"], cwd=dest).strip()
-            except gitops.GitFailed:
-                origin = ""
-            if not same_url(origin, url):
-                rmtree(dest)
-        if dest.is_dir():
-            gitops.run(["fetch", "-q", "origin", "HEAD"], cwd=dest, url=url)
-            gitops.run(["reset", "-q", "--hard", "FETCH_HEAD"], cwd=dest)
-        else:
-            tmp = dest.with_name(f".{cid}.new")
-            rmtree(tmp)
-            tmp.parent.mkdir(parents=True, exist_ok=True)
-            gitops.clone(url, tmp)
-            os.replace(tmp, dest)
-        _parse(cid, dest)
+        text = (Path(folder) / "catalog.json").read_text(encoding="utf-8")
+    except OSError as e:
+        raise WfError(f"catalog {cid}: catalog.json cannot be read ({e})")
+    return _parse_text(cid, text)
+
+
+def refresh(cid, url):
+    """Bring the cache of one catalog up to date. Returns None, or the reason it could not.
+    A new version replaces the cache only after its catalog.json has been checked, so a broken or
+    unreachable remote leaves the last good copy (and its date) in place."""
+    import uuid
+    from .library import _IndexLock
+    dest = cache_dir(cid)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with _IndexLock(f"catalog-{cid}"):
+            origin = ""
+            if dest.is_dir():
+                try:
+                    origin = gitops.run(["remote", "get-url", "origin"], cwd=dest).strip()
+                except gitops.GitFailed:
+                    origin = ""
+            if dest.is_dir() and same_url(origin, url):
+                gitops.run(["fetch", "-q", "origin", "HEAD"], cwd=dest, url=url)
+                _parse_text(cid, gitops.run(["show", "FETCH_HEAD:catalog.json"], cwd=dest))
+                gitops.run(["reset", "-q", "--hard", "FETCH_HEAD"], cwd=dest)
+            else:
+                tmp = dest.with_name(f".{cid}.new-{uuid.uuid4().hex[:12]}")
+                try:
+                    gitops.clone(url, tmp)
+                    _parse(cid, tmp)
+                    if dest.exists():
+                        old = dest.with_name(f".{cid}.old-{uuid.uuid4().hex[:12]}")
+                        os.replace(dest, old)
+                        rmtree(old)
+                    os.replace(tmp, dest)
+                finally:
+                    rmtree(tmp)
     except WfError as e:
-        return str(e)
+        return gitops.redact(str(e))
     with _lock():
         data = _load()
         entry = data["catalogs"].setdefault(cid, {})
@@ -187,9 +206,9 @@ def add(cid, url=None):
     if not url:
         raise WfError("durweg catalog add <name> <git address>")
     if not gitops_url(url):
-        raise WfError(f"{url} is not a git address (https://…, git@…, ssh://… or …/name.git)")
+        raise WfError(f"{gitops.redact(url)} is not a git address (https://…, git@…, ssh://… or …/name.git)")
     if cid in configured():
-        raise WfError(f"a catalog named {cid} exists already ({configured()[cid]['url']})")
+        raise WfError(f"a catalog named {cid} exists already ({gitops.redact(configured()[cid]['url'])})")
     reason = refresh(cid, url)                   # also proves the address works and the format is right
     if reason:
         rmtree(cache_dir(cid))
