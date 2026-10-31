@@ -40,4 +40,8 @@ Durweg 让 AI agent（Claude Code、Codex）按你自己的方法干活，每次
 - 卸载 Durweg（保留 `~/Durweg` 和你的运行记录）：`durweg uninstall`。
 - 把一次运行和 agent 自己的会话记录对照：可选插件 [durweg-audit](https://github.com/musetee/durweg-audit)。
 
+## 常见问题
+
+- **Windows 10：在安装窗口里登录不了 Claude。** Windows 10 的旧式命令行窗口显示不好现代的命令行程序。没有 Windows Terminal 就先从 Microsoft Store 安装，打开它，在里面运行安装程序：把 `Durweg-Install.bat` 拖进 Terminal 窗口，按回车。
+
 许可证：[MIT](LICENSE)。

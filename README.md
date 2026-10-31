@@ -62,4 +62,11 @@ weekly-report with durweg."
 - Remove Durweg (keeps `~/Durweg` and your runs): `durweg uninstall`.
 - Compare a run with the agent's session files: the optional plugin [durweg-audit](https://github.com/musetee/durweg-audit).
 
+## Common problems
+
+- **Windows 10: the Claude login does not work in the installer window.** Windows 10's old console
+  cannot show modern command-line programs well. Install Windows Terminal (Microsoft Store) if you do
+  not have it, open it, and run the installer there: drag `Durweg-Install.bat` into the Terminal
+  window and press Enter.
+
 License: [MIT](LICENSE).
