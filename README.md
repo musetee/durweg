@@ -33,9 +33,17 @@ workflow, which you then run once.
 
 ## Every day
 
-Tell your agent which workflow to run, for example "Run weekly-report with durweg." It goes step by
-step, stops where a step's check fails, and asks you where your method says you decide. To see what
-you have: "Show me my durweg workflows" (it runs `durweg library list`).
+1. Open a terminal in the folder of the project you work on: on Windows, Windows Terminal (if Durweg
+   is in WSL: "Ubuntu" from the Start menu); on macOS and Linux, Terminal. Each run is kept in a
+   `runs/` folder there.
+2. Start your agent: type `claude` (Claude Code) or `codex` (Codex) and press Enter.
+3. Tell it what you want:
+   - **A new workflow:** "Run write-your-method with durweg." It is the same guide the installer
+     started: you describe one piece of work, confirm the steps, and get a new workflow in your
+     library.
+   - **Run a workflow:** "Run weekly-report with durweg." It goes step by step, stops where a step's
+     check fails, and asks you where your method says you decide.
+   - **See what you have:** "Show me my durweg workflows" (it runs `durweg library list`).
 
 ## Where your files are
 

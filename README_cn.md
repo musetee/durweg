@@ -21,7 +21,12 @@ Durweg 让 AI agent（Claude Code、Codex）按你自己的方法干活，每次
 
 ## 每天怎么用
 
-告诉 agent 要跑哪个工作流，比如“用 durweg 运行 weekly-report”。它一步一步执行，某一步的检查没过就停下，在你的方法要你拍板的地方问你。想看看有哪些工作流，就说“列出我的 durweg 工作流”（它会运行 `durweg library list`）。
+1. 在你要做事的项目文件夹里打开终端：Windows 上用 Windows Terminal（Durweg 装在 WSL 里的话，从开始菜单打开 "Ubuntu"）；macOS 和 Linux 上用“终端”。每次运行的记录都放在这个文件夹的 `runs/` 里。
+2. 启动你的 agent：输入 `claude`（Claude Code）或 `codex`（Codex），按回车。
+3. 告诉它你要做什么：
+   - **新建一个工作流：**“用 durweg 运行 write-your-method”。这就是安装时带你做的那个引导：你描述一件每次都用同样方式做的工作，确认步骤，方法库里就多了一个新工作流。
+   - **运行一个工作流：**“用 durweg 运行 weekly-report”。它一步一步执行，某一步的检查没过就停下，在你的方法要你拍板的地方问你。
+   - **看看有哪些工作流：**“列出我的 durweg 工作流”（它会运行 `durweg library list`）。
 
 ## 你的文件在哪里
 
