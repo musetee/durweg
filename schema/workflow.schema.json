@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workflow.json",
+  "description": "A workflow definition for wf. Validated by wf/workflow.py (the code is the reference).",
+  "type": "object",
+  "required": ["id", "title", "skill", "steps"],
+  "properties": {
+    "id": {"type": "string"},
+    "title": {"type": "string"},
+    "skill": {"type": "string", "description": "skill folder, copied whole into the run's snapshot"},
+    "snapshot": {"type": "array", "items": {"type": "string"},
+                 "description": "extra files for the snapshot, e.g. gate scripts and their modules"},
+    "steps": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "instructions", "artifacts", "gates"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "title": {"type": "string"},
+          "instructions": {"type": "string", "description": "path#anchor of the section in the skill"},
+          "needs": {"type": "array", "items": {"type": "string"}, "description": "default: the previous step"},
+          "artifacts": {"type": "array", "minItems": 1, "items": {"type": "string"},
+                        "description": "globs (relative to the run) of every file the step writes or its gates read"},
+          "gates": {
+            "type": "array",
+            "items": {
+              "type": "object", "required": ["type"],
+              "properties": {"type": {"enum": ["json", "sections", "table", "files", "command", "user"]}}
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "id": "mini",
+  "title": "Minimal example: pick a topic, list points, check the list",
+  "skill": "skills/mini",
+  "snapshot": ["tools/verify_points.py"],
+  "steps": [
+    {
+      "id": "topic",
+      "title": "Pick a topic",
+      "instructions": "skills/mini/SKILL.md#1-topic",
+      "artifacts": ["steps/1-topic.json"],
+      "gates": [
+        {"type": "json", "file": "steps/1-topic.json",
+         "schema": {"type": "object", "required": ["options"],
+                    "properties": {"options": {"type": "array", "minItems": 2, "maxItems": 3,
+                                               "uniqueItems": true, "items": {"type": "string"}}}}},
+        {"type": "user"}
+      ]
+    },
+    {
+      "id": "points",
+      "title": "List the points",
+      "instructions": "skills/mini/SKILL.md#2-points",
+      "artifacts": ["steps/2-points.md"],
+      "gates": [
+        {"type": "sections", "file": "steps/2-points.md",
+         "headings": [{"title": "Points", "min_items": 3, "max_items": 5}]},
+        {"type": "table", "file": "steps/2-points.md", "under": "Sources",
+         "columns": ["point", "source"], "min_rows": 1, "unique": ["point"]}
+      ]
+    },
+    {
+      "id": "verify",
+      "title": "Check the points against the topic",
+      "instructions": "skills/mini/SKILL.md#3-verify",
+      "artifacts": ["steps/3-verify.json", "evidence/*.txt"],
+      "gates": [
+        {"type": "files", "glob": "evidence/*.txt", "min_count": 1},
+        {"type": "command", "argv": ["python3", "{wf}/tools/verify_points.py", "{run}"], "timeout": 20}
+      ]
+    }
+  ]
+}
