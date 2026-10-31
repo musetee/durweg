@@ -215,12 +215,17 @@ PY
 # ---- the guide: the README on GitHub opens in the browser ---------------------------------------
 GUIDE="${DURWEG_GUIDE:-https://github.com/$REPO/blob/$VERSION/}$(t README.md README_cn.md)"
 say "Guide: $GUIDE" "教程：$GUIDE"
-if [ -z "${DURWEG_NO_START:-}${DURWEG_NO_BROWSER:-}" ]; then
+open_guide() {
     if [ -n "${DURWEG_OPEN_CMD:-}" ]; then "$DURWEG_OPEN_CMD" "$GUIDE"              # tests
     elif [ "$(uname)" = Darwin ]; then open "$GUIDE"
-    elif grep -qi microsoft /proc/version 2>/dev/null; then (cd /mnt/c 2>/dev/null; explorer.exe "$GUIDE")
+    elif grep -qi microsoft /proc/version 2>/dev/null; then cd /mnt/c 2>/dev/null; explorer.exe "$GUIDE"
     elif [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && has xdg-open; then xdg-open "$GUIDE"
-    fi >/dev/null 2>&1 || true
+    fi
+}
+# in the background and detached from this terminal: a slow or stuck browser never holds up the
+# installer or the agent start (V1-C-011)
+if [ -z "${DURWEG_NO_START:-}${DURWEG_NO_BROWSER:-}" ]; then
+    ( open_guide </dev/null >/dev/null 2>&1 & ) || true
 fi
 
 # ---- start ------------------------------------------------------------------------------------

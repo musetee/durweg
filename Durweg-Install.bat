@@ -23,6 +23,9 @@ $DHome = if ($env:DURWEG_HOME) { $env:DURWEG_HOME } else { Join-Path $HOME 'Durw
 $Utf8 = New-Object System.Text.UTF8Encoding $false
 New-Item -ItemType Directory -Force -Path $Local | Out-Null
 
+# a value as one bash word: inside single quotes, a ' becomes '\'' (V1-C-012)
+function Q($s) { "'" + ([string]$s -replace "'", "'\''") + "'" }
+if ($env:DURWEG_TEST_QUOTE) { Write-Host (Q $env:DURWEG_TEST_QUOTE); exit 0 }
 function Read-Json($p) { if (Test-Path $p) { try { return [IO.File]::ReadAllText($p) | ConvertFrom-Json } catch { } }; return $null }
 function Write-Json($p, $o) { [IO.File]::WriteAllText($p, ($o | ConvertTo-Json -Depth 5), $Utf8) }
 
@@ -123,7 +126,7 @@ if ($Target -eq 'wsl') {
     }
     if ($rc) {
         $tar = (& wsl.exe wslpath -u ((Join-Path $Here $rc.tar) -replace '\\', '/')).Trim()
-        $cmd = "export DURWEG_LANG=$Lang DURWEG_VERSION=$Version DURWEG_SOURCE='$tar' DURWEG_SHA256=$($rc.tar_sha256); " +
+        $cmd = "export DURWEG_LANG=$Lang DURWEG_VERSION=$Version DURWEG_SOURCE=$(Q $tar) DURWEG_SHA256=$($rc.tar_sha256); " +
                "s=`$(mktemp); tar -xzOf `"`$DURWEG_SOURCE`" durweg-$Version/install.sh > `"`$s`" && bash `"`$s`""
     } else {
         $cmd = "export DURWEG_LANG=$Lang DURWEG_VERSION=$Version; cd ~ && " +
@@ -132,7 +135,7 @@ if ($Target -eq 'wsl') {
     if ($env:DURWEG_NO_START) { $cmd = "export DURWEG_NO_START=1; $cmd" }
     if ($env:DURWEG_NO_BROWSER) { $cmd = "export DURWEG_NO_BROWSER=1; $cmd" }
     $g = if ($env:DURWEG_GUIDE) { $env:DURWEG_GUIDE } elseif ($rc -and $rc.guide) { $rc.guide } else { $null }
-    if ($g) { $cmd = "export DURWEG_GUIDE='$g'; $cmd" }   # install.sh in WSL opens the guide
+    if ($g) { $cmd = "export DURWEG_GUIDE=$(Q $g); $cmd" }   # install.sh in WSL opens the guide
     & wsl.exe -e bash -lc $cmd
     exit $LASTEXITCODE
 }

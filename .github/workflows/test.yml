@@ -143,3 +143,14 @@ jobs:
           $out = cmd /c Durweg-Install.bat | Out-String
           if ($LASTEXITCODE -ne 0) { throw "installer exit $LASTEXITCODE" }
           if ($out -notmatch [regex]::Escape('Guide: https://example.org/durweg/README.md')) { throw "no guide line: $out" }
+      - name: values reach WSL's bash as one word, quotes and all (V1-C-012)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($v in @("https://example.org/it's/", "/mnt/c/Users/O'Brien/My Files/durweg.tar.gz", "a'b'c `$HOME ;x")) {
+            $env:DURWEG_TEST_QUOTE = $v
+            $q = (cmd /c Durweg-Install.bat | Out-String).Trim()
+            Remove-Item Env:DURWEG_TEST_QUOTE
+            $back = & 'C:\Program Files\Git\bin\bash.exe' -c "printf %s $q"
+            if ($back -ne $v) { throw "quoted $v as $q, bash read $back" }
+          }

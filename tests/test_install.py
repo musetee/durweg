@@ -90,6 +90,23 @@ class Install(unittest.TestCase):
         self.assertIn("Guide: https://github.com/musetee/durweg/blob/v9.0.0/README.md", r.stdout)
         self.assertFalse(seen.exists())
 
+    def test_slow_browser_does_not_hold_up_the_installer(self):          # V1-C-011
+        seen = self.tmp / "opened"
+        opener = self.tmp / "opener"
+        opener.write_text(f'#!/bin/sh\nsleep 6\nprintf "%s" "$1" > "{seen}"\n')
+        opener.chmod(0o755)
+        import time
+        t0 = time.monotonic()
+        r = self.install(DURWEG_NO_START="", DURWEG_OPEN_CMD=str(opener))
+        took = time.monotonic() - t0
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertLess(took, 5, "the installer waited for the browser")
+        for _ in range(100):
+            if seen.exists():
+                break
+            time.sleep(0.1)
+        self.assertTrue(seen.exists(), "the guide was not opened in the background")
+
     def test_no_terminal_means_english(self):
         r = self.install()
         self.assertIn("no terminal to ask in: English", r.stdout)
