@@ -136,12 +136,18 @@ def _git(root, *args):
 
 
 def repo_state(wf, files, dev):
-    """Return (commit, dirty-list). Refuse a dirty or untracked definition unless dev."""
+    """Source identity of the workflow: (kind, commit, dirty).
+
+    kind "git": the folder is inside a git work tree and git is installed - the commit is
+    recorded and the workflow files must be committed and clean (unless dev).
+    kind "files": no git, or not a git work tree - nothing is required; the run's snapshot
+    (every file with its sha256) is what makes it reproducible (plan V1-R-003, git optional).
+    """
+    if shutil.which("git") is None:
+        return "files", None, []
     top = _git(wf.root, "rev-parse", "--show-toplevel")
     if top.returncode != 0:
-        if dev:
-            return None, ["not a git repository"]
-        raise WfError(f"{wf.root} is not a git repository; commit the workflow first (or --dev)")
+        return "files", None, []
     head = _git(wf.root, "rev-parse", "--verify", "-q", "HEAD")
     commit = head.stdout.strip() if head.returncode == 0 else None
     st = _git(wf.root, "status", "--porcelain", "--untracked-files=all", "--", *files)
@@ -149,9 +155,10 @@ def repo_state(wf, files, dev):
     if commit is None:
         dirty.append("no commit yet")
     if dirty and not dev:
-        raise WfError("workflow files are not committed and clean (use --dev for a run that "
-                      "cannot be used for acceptance):\n  " + "\n  ".join(dirty))
-    return commit, dirty
+        raise WfError("the workflow is in a git repository and its files are not committed and clean "
+                      "(commit them, or use --dev for a run that cannot be used for acceptance):\n  "
+                      + "\n  ".join(dirty))
+    return "git", commit, dirty
 
 
 def make_snapshot(wf, run_dir, files):

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from . import gates, workflow
 from .state import STATE, RunState, replay
-from .util import RunLock, WfError, now, write_json
+from .util import RunLock, WfError, now, sha256_json, write_json
 
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
@@ -78,7 +78,7 @@ def cmd_start(a):
         raise WfError(f"slug must match {SLUG.pattern}")
     wf = workflow.load(a.workflow)
     files = workflow.snapshot_sources(wf)
-    commit, dirty = workflow.repo_state(wf, files, a.dev)
+    kind, commit, dirty = workflow.repo_state(wf, files, a.dev)
     runs = Path(a.runs).expanduser().resolve()
     run_id = f"{datetime.date.today().isoformat()}_{a.slug}"
     run_dir = runs / run_id
@@ -89,8 +89,9 @@ def cmd_start(a):
     agent, session = detect_agent()
     data = {"format": 1, "run": run_id, "events": [{
         "n": 1, "t": now(), "type": "start",
-        "workflow": {"id": wf.id, "source": str(wf.root), "commit": commit, "dev": bool(a.dev),
-                     "dirty": dirty, "manifest": manifest},
+        "workflow": {"id": wf.id, "source": str(wf.root), "source_kind": kind, "commit": commit,
+                     "dev": bool(a.dev), "dirty": dirty, "manifest": manifest,
+                     "digest": sha256_json(manifest)},
         "trial": bool(a.trial), "agent": a.agent or agent, "session": a.session or session}]}
     write_json(run_dir / STATE, data)
     (run_dir / "steps").mkdir(exist_ok=True)
@@ -230,7 +231,8 @@ def cmd_status(a):
         run_dir = found[0]
     run = Run(run_dir)
     s = run.st.start
-    print(f"run {run.st.id} · workflow {s['workflow']['id']} @ {str(s['workflow']['commit'])[:10]}"
+    ident = (s['workflow'].get('commit') or "")[:10] or "files " + s['workflow'].get('digest', '')[:10]
+    print(f"run {run.st.id} · workflow {s['workflow']['id']} @ {ident}"
           f"{' · dev' if s['workflow']['dev'] else ''}{' · trial' if s['trial'] else ''} · agent {s['agent']}")
     for sid in run.wf.order:
         mark = {"done": "x", "active": ">", "pending": " "}[run.rp.status[sid]]

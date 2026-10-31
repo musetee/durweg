@@ -6,6 +6,7 @@ import socket
 import subprocess
 import sys
 import unittest
+from pathlib import Path
 
 from helpers import WfCase, git
 
@@ -488,3 +489,62 @@ class Portable(WfCase):
         r = subprocess.run([sys.executable, str(ROOT / "bin" / "durweg"), "--version"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("durweg 1.0", r.stdout)
+
+
+class GitOptional(WfCase):
+    """Plan V1-R-003: a workflow folder without git works; git rules apply only inside a work tree."""
+
+    def plain_copy(self, where):
+        from helpers import EXAMPLE
+        import shutil as sh
+        sh.copytree(EXAMPLE, where)
+        return where
+
+    def run_plain(self, src, slug="plain"):
+        self.wf("start", src, slug, "--runs", self.runs)
+        self.run = next(self.runs.glob(f"*_{slug}"))
+        self.full()
+        return self.check()
+
+    def test_folder_without_git(self):
+        src = self.plain_copy(self.tmp / "plain")
+        rc, out = self.run_plain(src)
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("dev run", out)
+        start = self.events()[0]["workflow"]
+        self.assertEqual(start["source_kind"], "files")
+        self.assertIsNone(start["commit"])
+        self.assertEqual(len(start["digest"]), 64)
+
+    def test_no_git_installed(self):
+        src = self.plain_copy(self.tmp / "nogit")
+        old = os.environ["PATH"]
+        empty = self.tmp / "empty-bin"
+        empty.mkdir()
+        os.environ["PATH"] = str(empty)                    # no git; durweg runs gates with sys.executable
+        try:
+            import shutil as sh
+            self.assertIsNone(sh.which("git"))
+            rc, out = self.run_plain(src, "nogit")
+        finally:
+            os.environ["PATH"] = old
+        self.assertEqual(rc, 0, out)
+
+    def test_source_moved_or_changed_later(self):
+        src = self.plain_copy(self.tmp / "moving")
+        self.assertEqual(self.run_plain(src, "mv")[0], 0)
+        (src / "workflow.json").write_text("{}")
+        src.rename(self.tmp / "moved-away")
+        rc, out = self.check()
+        self.assertEqual(rc, 0, out)                                 # the run's snapshot decides
+
+    def test_untracked_inside_an_upper_git_repo_is_refused(self):
+        outer = self.tmp / "project"
+        outer.mkdir()
+        git(outer, "init", "-q", "-b", "main")
+        (outer / "README").write_text("x\n")
+        git(outer, "add", "-A")
+        git(outer, "commit", "-q", "-m", "x")
+        src = self.plain_copy(outer / "methods" / "mini")
+        out = self.wf("start", src, "inner", "--runs", self.runs, expect=1)
+        self.assertIn("not committed and clean", out)
