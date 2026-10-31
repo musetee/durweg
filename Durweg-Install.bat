@@ -26,6 +26,14 @@ New-Item -ItemType Directory -Force -Path $Local | Out-Null
 # a value as one bash word: inside single quotes, a ' becomes '\'' (V1-C-012)
 function Q($s) { "'" + ([string]$s -replace "'", "'\''") + "'" }
 if ($env:DURWEG_TEST_QUOTE) { Write-Host (Q $env:DURWEG_TEST_QUOTE); exit 0 }
+# the first word of a .sha256 file; Windows PowerShell hands a downloaded .sha256 over as bytes,
+# not text, so turn bytes into text first (v1.0.0 read "55" and refused every download)
+function Read-Sha($content) {
+    $t = if ($content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($content) } else { [string]$content }
+    $w = ($t.Trim() -split '\s+')[0]
+    if ($w -match '^[0-9a-fA-F]{64}$') { return $w.ToLower() } else { return $null }
+}
+if ($env:DURWEG_TEST_SHA_URL) { Write-Host ('sha=' + (Read-Sha (Invoke-WebRequest -UseBasicParsing -Uri $env:DURWEG_TEST_SHA_URL).Content)); exit 0 }
 function Read-Json($p) { if (Test-Path $p) { try { return [IO.File]::ReadAllText($p) | ConvertFrom-Json } catch { } }; return $null }
 function Write-Json($p, $o) { [IO.File]::WriteAllText($p, ($o | ConvertTo-Json -Depth 5), $Utf8) }
 
@@ -210,7 +218,7 @@ else { $Src = "https://github.com/$Repo/releases/download/$Version/durweg-$Versi
 try {
     if ($Src -match '^https?://') {
         Invoke-WebRequest -UseBasicParsing -Uri $Src -OutFile $Pkg
-        if (-not $Sha) { $Sha = ((Invoke-WebRequest -UseBasicParsing -Uri "$Src.sha256").Content -split '\s+')[0] }
+        if (-not $Sha) { $Sha = Read-Sha (Invoke-WebRequest -UseBasicParsing -Uri "$Src.sha256").Content }
     } else { Copy-Item -LiteralPath $Src -Destination $Pkg -Force }
 } catch { Stop-Install "Download failed: $Src" "下载失败：$Src" }
 if (-not $Sha) { Stop-Install 'No sha256 for the download, so it cannot be checked.' '下载没有附带 sha256，无法校验。' }
