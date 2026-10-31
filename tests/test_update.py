@@ -191,3 +191,97 @@ class UpdateAndStart(UpdateCase):
             self.assertEqual(self.events()[0]["workflow"]["commit"], new, way)
             self.full()
             self.assertEqual(self.check()[0], 0, way)
+
+
+class ReviewRegressions2a(UpdateCase):
+    """agy V11-C-007, 008."""
+
+    def hooked_copytree(self, after):
+        import shutil
+        real = shutil.copytree
+
+        def copytree(src, dst, *a, **kw):
+            r = real(src, dst, *a, **kw)
+            if Path(src) == self.dest:
+                after()
+            return r
+        shutil.copytree = copytree
+        return lambda: setattr(shutil, "copytree", real)
+
+    def test_c007_file_written_after_the_copy_is_kept_and_nothing_swapped(self):
+        old = self.rev(self.dest)
+        self.publish()
+        undo = self.hooked_copytree(lambda: (self.dest / "note.txt").write_text("my edit"))
+        try:
+            line = self.line(self.wf("library", "update"))
+        finally:
+            undo()
+        self.assertIn("was changed while it was being updated", line)
+        self.assertEqual((self.dest / "note.txt").read_text(), "my edit")
+        self.assertEqual(self.rev(self.dest), old)
+
+    def test_c007_branch_switched_on_the_same_commit(self):
+        old = self.rev(self.dest)
+        self.publish()
+        undo = self.hooked_copytree(lambda: git(self.dest, "checkout", "-q", "-b", "other"))
+        try:
+            line = self.line(self.wf("library", "update"))
+        finally:
+            undo()
+        self.assertIn("was changed while it was being updated", line)
+        self.assertEqual(self.rev(self.dest), old)
+
+    def test_c007_file_written_during_fetch_is_not_swapped_in(self):
+        from durweg import gitops
+        old = self.rev(self.dest)
+        self.publish()
+        real = gitops.run
+
+        def run(args, *a, **kw):
+            r = real(args, *a, **kw)
+            if args[:2] == ["fetch", "-q"] and Path(kw.get("cwd") or ".") == self.dest:   # the workflow's own fetch
+                (self.dest / "skills" / "mini" / "extra.md").write_text("dirty")
+            return r
+        gitops.run = run
+        try:
+            line = self.line(self.wf("library", "update"))
+        finally:
+            gitops.run = real
+        self.assertIn("was changed while it was being updated", line)
+        self.assertTrue((self.dest / "skills" / "mini" / "extra.md").is_file())
+        self.assertEqual(self.rev(self.dest), old)
+
+    def v10(self):
+        home = Path(os.environ["DURWEG_HOME"])
+        lib = json.loads((home / "library.json").read_text())
+        for k in ("branch", "commit", "catalog"):
+            lib["workflows"]["mini"].pop(k, None)
+        (home / "library.json").write_text(json.dumps(lib))
+
+    def test_c008_detached_v10_entry_gets_no_branch_then_recovers(self):
+        self.v10()
+        git(self.dest, "checkout", "-q", "--detach", "HEAD")
+        self.assertIn("detached", self.line(self.wf("library", "update")))
+        self.assertNotIn("branch", self.lib()["mini"])
+        git(self.dest, "checkout", "-q", "main")
+        self.publish()
+        self.assertIn("updated", self.line(self.wf("library", "update")))
+        self.assertEqual(self.lib()["mini"]["branch"], "main")
+
+    def test_c008_local_branch_is_not_written_down(self):
+        self.v10()
+        git(self.dest, "checkout", "-q", "-b", "mine")
+        self.assertIn("on branch mine, not main", self.line(self.wf("library", "update")))
+        self.assertNotIn("branch", self.lib()["mini"])
+        git(self.dest, "checkout", "-q", "main")
+        self.publish()
+        self.assertIn("updated", self.line(self.wf("library", "update")))
+        self.assertEqual(self.lib()["mini"]["branch"], "main")
+
+    def test_c008_null_branch_from_df47c8a_is_repaired(self):
+        home = Path(os.environ["DURWEG_HOME"])
+        lib = json.loads((home / "library.json").read_text())
+        lib["workflows"]["mini"]["branch"] = None
+        (home / "library.json").write_text(json.dumps(lib))
+        self.assertIn("unchanged", self.line(self.wf("library", "update")))
+        self.assertEqual(self.lib()["mini"]["branch"], "main")

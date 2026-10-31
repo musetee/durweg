@@ -304,13 +304,18 @@ def update_one(name, entry):
         return "failed", f"{dest} is missing or not a git clone", {}
     try:
         branch, head = gitops.head_state(dest)
-        want = entry.get("branch") or branch
-        fill = {"branch": want, "commit": head} if not entry.get("branch") or not entry.get("commit") else {}
+        # V11-C-008: an entry without a branch (v1.0) follows the remote's default branch; it is
+        # written down only once the clone is really on it, never None or a branch of the moment
+        want = entry.get("branch") or _remote_default(dest, url)
+        if not want:
+            return "skipped", "cannot tell which branch the remote follows (no default branch)", {}
+        fill = {"branch": want, "commit": head} \
+            if branch == want and (not entry.get("branch") or not entry.get("commit")) else {}
         if branch is None:
             return "skipped", "not on a branch (detached HEAD); Durweg does not move it", fill
         if branch != want:
             return "skipped", f"on branch {branch}, not {want}; Durweg does not switch branches", fill
-        if gitops.run(["status", "--porcelain", "--untracked-files=all"], cwd=dest).strip():
+        if _dirty(dest):
             return "skipped", "has changes that are not committed; Durweg does not overwrite them", fill
         default = _remote_default(dest, url)
         if default and default != want:
@@ -337,9 +342,16 @@ def update_one(name, entry):
         workflow.load(stage)                                  # an invalid new version is never swapped in
         _, staged = gitops.head_state(stage)
         with _IndexLock("library"), source_lock(dest):
-            _, now_head = gitops.head_state(dest)
-            if now_head != head:
-                return "skipped", "changed while it was being updated; try again", {}
+            # V11-C-007: the folder may have been used while the new version was prepared; swap
+            # only if it is still exactly what was checked: same branch, same commit, nothing
+            # uncommitted (in it or in the copy), and still this library entry
+            now_branch, now_head = gitops.head_state(dest)
+            current = _load("library.json", "workflows")["workflows"].get(name) or {}
+            if now_branch != want or now_head != head or _dirty(dest) or _dirty(stage):
+                return "skipped", ("was changed while it was being updated (a commit, another branch or "
+                                   "uncommitted changes); nothing was replaced, try again"), {}
+            if current.get("source") != "git" or current.get("path") != entry["path"]:
+                return "skipped", "was removed or changed in the library while it was being updated", {}
             old = dest.parent / f".old-{name}-{uuid.uuid4().hex[:12]}"
             os.replace(dest, old)
             try:
@@ -361,6 +373,11 @@ def update_one(name, entry):
         return "failed", f"could not swap the folder, the old one is kept ({e}); try again later", {}
     finally:
         rmtree(stage)
+
+
+def _dirty(repo):
+    from . import gitops
+    return bool(gitops.run(["status", "--porcelain", "--untracked-files=all"], cwd=repo).strip())
 
 
 def subprocess_ok(cwd, *args):
