@@ -77,17 +77,21 @@ def cmd_start(a):
     if not SLUG.match(a.slug):
         raise WfError(f"slug must match {SLUG.pattern}")
     src, lib_name = library.resolve(a.workflow)
-    wf = workflow.load(src)
-    workflow.check_platform(wf)
-    files = workflow.snapshot_sources(wf)
-    kind, commit, dirty = workflow.repo_state(wf, files, a.dev)
     runs = Path(a.runs).expanduser().resolve()
     run_id = f"{datetime.date.today().isoformat()}_{a.slug}"
     run_dir = runs / run_id
-    if run_dir.exists():
-        raise WfError(f"{run_dir} already exists; use another slug, for example {a.slug}-2")
-    (run_dir / ".wf").mkdir(parents=True)
-    manifest = workflow.make_snapshot(wf, run_dir, files)
+    # plan v1.1 C4: whatever named the folder (library name, alias, absolute or relative path),
+    # load, source state and snapshot happen under that folder's lock, so an update that swaps it
+    # is either wholly before or wholly after: the snapshot and the commit belong together
+    with library.source_lock(src):
+        wf = workflow.load(src)
+        workflow.check_platform(wf)
+        files = workflow.snapshot_sources(wf)
+        kind, commit, dirty = workflow.repo_state(wf, files, a.dev)
+        if run_dir.exists():
+            raise WfError(f"{run_dir} already exists; use another slug, for example {a.slug}-2")
+        (run_dir / ".wf").mkdir(parents=True)
+        manifest = workflow.make_snapshot(wf, run_dir, files)
     agent, session = detect_agent()
     data = {"format": 1, "run": run_id, "events": [{
         "n": 1, "t": now(), "type": "start",
@@ -294,6 +298,8 @@ def cmd_library(a):
         print(f"removed {a.target} from the library (the folder {path} is kept)")
     elif a.action == "available":
         return _available()
+    elif a.action == "update":
+        return _update([a.target] if a.target else None)
     else:
         items = library.entries()
         if not items:
@@ -330,6 +336,27 @@ def _available():
         print("install one with: durweg library add <catalog>:<name>  (or just <name> if only one catalog has it)")
     else:
         print("no workflows to show")
+    return 0
+
+
+def _update(names):
+    """Plan v1.1 C5: the catalogs, then every workflow Durweg cloned; one line each, then a sum.
+    Exit 0 even when some were skipped or failed: those are reported, the rest is done."""
+    from . import catalog
+    counts = {}
+    if not names:
+        for cid, entry in sorted(catalog.enabled().items()):
+            reason = catalog.refresh(cid, entry["url"])
+            print(f"catalog {cid}: " + (f"not refreshed ({reason}); the last copy is kept" if reason else "refreshed"))
+    rows = library.update(names)
+    for name, status, detail in rows:
+        counts[status] = counts.get(status, 0) + 1
+        print(f"{name:23} {status:9} {detail}")
+    if not rows and not names:
+        print("the library is empty")
+    print("summary: " + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("updated", "unchanged", "skipped", "failed")))
+    if counts.get("failed") or counts.get("skipped"):
+        print("warning: some were not updated; the reasons are on their lines", file=sys.stderr)
     return 0
 
 
@@ -450,9 +477,10 @@ def main(argv=None):
     p.add_argument("step")
     p.add_argument("--reason", required=True)
     p = sub.add_parser("library", help="the method library in ~/Durweg")
-    p.add_argument("action", choices=["add", "list", "remove", "available"])
+    p.add_argument("action", choices=["add", "list", "remove", "available", "update"])
     p.add_argument("target", nargs="?",
-                   help="add: a name, <catalog>:<name>, a folder (./name) or a git address; remove: a name")
+                   help="add: a name, <catalog>:<name>, a folder (./name) or a git address; remove: a name; "
+                        "update: a name (all when left out)")
     p.add_argument("--name")
     p = sub.add_parser("catalog", help="the catalogs of workflows that can be installed by name")
     p.add_argument("action", choices=["add", "list", "remove"])
