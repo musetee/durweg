@@ -94,12 +94,15 @@ class WfCase(unittest.TestCase):
         self.tr = None
         self._home = os.environ.get("DURWEG_HOME")
         os.environ["DURWEG_HOME"] = str(self.tmp / "Durweg")     # never the user's real ~/Durweg
+        self._pubcat = os.environ.get("DURWEG_PUBLIC_CATALOG")
+        os.environ["DURWEG_PUBLIC_CATALOG"] = str(self.tmp / "no-public-catalog.git")   # never the network
 
     def tearDown(self):
-        if self._home is None:
-            os.environ.pop("DURWEG_HOME", None)
-        else:
-            os.environ["DURWEG_HOME"] = self._home
+        for key, old in (("DURWEG_HOME", self._home), ("DURWEG_PUBLIC_CATALOG", self._pubcat)):
+            if old is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def wf(self, *args, expect=0):

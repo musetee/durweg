@@ -44,4 +44,32 @@
 
 ## 方法库
 
-`durweg library add <文件夹 | git 地址> [--name 名字]` 把一个工作流登记到某个名字下：文件夹就留在原处，git 地址则会 clone 到 `~/Durweg/workflows/`。之后就可以 `durweg start <名字> <这次运行的名字>`。看起来像路径的参数（`./x`、`/x`、`~/x`、`C:\x`，或者任何带斜杠的）一律当作路径。`durweg library list` 列出名字、支持的系统，以及文件夹还在不在；`durweg runs` 列出这台电脑上启动过的运行（索引丢了，可以用 `--rebuild <文件夹>` 重新扫描）。
+`durweg library add <内容> [--name 名字]` 把一个工作流登记到某个名字下。`<内容>` 按这个顺序判断：
+
+1. git 地址（`https://…`、`git@…`、`ssh://…`、`….git`）：clone 到 `~/Durweg/workflows/`；
+2. `<目录>:<名字>`（例如 `public:human-readme`）：从这个目录里装这个工作流（clone）；
+3. 看起来像路径的（`./x`、`/x`、`~/x`、`C:\x`，或者任何带斜杠的）：这个文件夹，留在原处；
+4. 单个词：当前文件夹里同名的文件夹，或者某个目录里同名的工作流。两者都有时什么也不加，并提示写
+   `./<词>` 或 `<目录>:<词>`；好几个目录都有这个名字时，要求写 `<目录>:<词>`。
+
+之后就可以 `durweg start <名字> <这次运行的名字>`；`start` 只查方法库，从不查目录。`durweg library list`
+列出名字、支持的系统，以及文件夹还在不在；`durweg library available` 列出各个目录里能装的工作流；
+`durweg runs` 列出这台电脑上启动过的运行（索引丢了，可以用 `--rebuild <文件夹>` 重新扫描）。
+
+## 目录
+
+目录是一个 git 仓库，里面只有一个文件 `catalog.json`，列出别人可以按名字安装的工作流：
+
+```json
+{"format": 1, "workflows": {
+  "human-readme": {"title": "给人看的 README", "summary": "一句话说明它做什么",
+                   "url": "https://github.com/<owner>/durweg-human-readme.git"}}}
+```
+
+名字只用小写字母、数字和 `-`；没有 `url` 的条目会被跳过。公开目录（`public`）一直都在：
+`durweg catalog remove public` 关掉它，`durweg catalog add public` 重新打开。别的目录，比如你自己的私人目录：
+`durweg catalog add <名字> <git 地址>`（名字至少 2 个字符）、`durweg catalog list`、
+`durweg catalog remove <名字>`（从它装的工作流仍留在方法库里）。Durweg 在 `~/Durweg/catalogs/` 里存每个目录的一份副本；
+下载不到时就显示这份副本，并写明是什么时候的。
+
+git 只用电脑上已有的凭据，从不弹出要密码的提问：GitHub 私有仓库需要先运行一次 `gh auth login` 和 `gh auth setup-git`。

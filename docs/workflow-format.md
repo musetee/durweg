@@ -54,10 +54,41 @@ looked up), the mistake costs a lot, and the workflow runs again and again. Scri
 
 ## Library
 
-`durweg library add <folder | git address> [--name name]` registers a workflow under a name; a
-folder stays where it is, a git address is cloned into `~/Durweg/workflows/`. Then
-`durweg start <name> <name-of-this-run>`. Arguments that look like paths (`./x`, `/x`, `~/x`,
-`C:\x`, anything with a slash) are always paths. `durweg library list` shows names, systems and
-whether the folder still exists; `durweg runs` lists the runs started on this computer
-(`--rebuild <folder>` scans a folder if the index was lost).
+`durweg library add <what> [--name name]` registers a workflow under a name. `<what>` is read in
+this order:
+
+1. a git address (`https://…`, `git@…`, `ssh://…`, `….git`): cloned into `~/Durweg/workflows/`;
+2. `<catalog>:<name>` (for example `public:human-readme`): that workflow from that catalog, cloned;
+3. anything that looks like a path (`./x`, `/x`, `~/x`, `C:\x`, anything with a slash): that folder,
+   which stays where it is;
+4. a single word: a folder of that name in the current folder, or a workflow of that name in a
+   catalog. If both exist, nothing is added and it tells you to write `./<word>` or
+   `<catalog>:<word>`; if several catalogs have the name, it asks for `<catalog>:<word>`.
+
+Then `durweg start <name> <name-of-this-run>`; `start` only ever looks in the library, never in a
+catalog. `durweg library list` shows names, systems and whether the folder still exists;
+`durweg library available` shows what the catalogs offer; `durweg runs` lists the runs started on
+this computer (`--rebuild <folder>` scans a folder if the index was lost).
+
+## Catalogs
+
+A catalog is a git repository with one file, `catalog.json`, that lists workflows other people can
+install by name:
+
+```json
+{"format": 1, "workflows": {
+  "human-readme": {"title": "A README for people", "summary": "one line on what it is for",
+                   "url": "https://github.com/<owner>/durweg-human-readme.git"}}}
+```
+
+Names use lower-case letters, digits and `-`; entries without a `url` are skipped. The public
+catalog (`public`) is always known; `durweg catalog remove public` switches it off and
+`durweg catalog add public` switches it on again. Another catalog, such as your own private one:
+`durweg catalog add <name> <git address>` (the name has at least 2 characters), `durweg catalog list`,
+`durweg catalog remove <name>` (workflows installed from it stay in the library). Durweg keeps a copy
+of each catalog in `~/Durweg/catalogs/`; when it cannot download a catalog it shows that copy and
+says from when it is.
+
+git is only ever run with the credentials already on the computer and never asks for a password:
+a private GitHub repository needs `gh auth login` and `gh auth setup-git` once.
 

@@ -282,13 +282,18 @@ def cmd_render(a):
 
 def cmd_library(a):
     if a.action in ("add", "remove") and not a.target:
-        raise WfError(f"durweg library {a.action} needs a {'folder or git address' if a.action == 'add' else 'name'}")
+        raise WfError(f"durweg library {a.action} needs a "
+                      f"{'name, <catalog>:<name>, folder or git address' if a.action == 'add' else 'name'}")
     if a.action == "add":
-        name, path = library.add(a.target, a.name)
+        name, path, note = library.add(a.target, a.name)
+        if note:
+            print(f"note: {note}", file=sys.stderr)
         print(f"added {name}: {path}\nrun it with: durweg start {name} <name-of-this-run>")
     elif a.action == "remove":
         path = library.remove(a.target)
         print(f"removed {a.target} from the library (the folder {path} is kept)")
+    elif a.action == "available":
+        return _available()
     else:
         items = library.entries()
         if not items:
@@ -301,6 +306,54 @@ def cmd_library(a):
             except WfError:
                 plats, state = "?", "  (missing or invalid)"
             print(f"{name:20} {plats:24} {p}{state}")
+    return 0
+
+
+def _available():
+    """Plan v1.1 C1: what the enabled catalogs offer, as <catalog>:<name>."""
+    from . import catalog
+    installed = [e.get("url") for e in library.entries().values() if e.get("url")]
+    cats = catalog.enabled()
+    if not cats:
+        print("no catalog is switched on; `durweg catalog add public` switches the public one on")
+        return 0
+    shown = 0
+    for cid in sorted(cats):
+        items, note = catalog.read(cid, cats[cid])
+        if note:
+            print(f"note: {note}", file=sys.stderr)
+        for name, e in sorted((items or {}).items()):
+            mark = "  (installed)" if any(catalog.same_url(u, e["url"]) for u in installed) else ""
+            print(f"{cid + ':' + name:32} {e['summary'] or e['title']}{mark}")
+            shown += 1
+    if shown:
+        print("install one with: durweg library add <catalog>:<name>  (or just <name> if only one catalog has it)")
+    else:
+        print("no workflows to show")
+    return 0
+
+
+def cmd_catalog(a):
+    from . import catalog
+    if a.action == "list":
+        for cid, e in sorted(catalog.configured().items()):
+            state = "off" if e.get("disabled") else "on"
+            print(f"{cid:16} {state:4} {catalog.gitops.redact(e['url'])}"
+                  f"{'  (last downloaded ' + e['fetched'] + ')' if e.get('fetched') else ''}")
+        return 0
+    if not a.id:
+        raise WfError(f"durweg catalog {a.action} needs a name")
+    if a.action == "add":
+        url, reason = catalog.add(a.id, a.url)
+        print(f"catalog {a.id} is on: {catalog.gitops.redact(url)}")
+        if reason:
+            print(f"note: it could not be downloaded now ({reason}); `durweg library available` tries again",
+                  file=sys.stderr)
+    else:
+        if catalog.remove(a.id):
+            print("the public catalog is switched off; `durweg catalog add public` switches it on again")
+        else:
+            print(f"removed catalog {a.id} (workflows installed from it stay in the library)")
     return 0
 
 
@@ -397,9 +450,14 @@ def main(argv=None):
     p.add_argument("step")
     p.add_argument("--reason", required=True)
     p = sub.add_parser("library", help="the method library in ~/Durweg")
-    p.add_argument("action", choices=["add", "list", "remove"])
-    p.add_argument("target", nargs="?", help="add: a folder or git address; remove: a name")
+    p.add_argument("action", choices=["add", "list", "remove", "available"])
+    p.add_argument("target", nargs="?",
+                   help="add: a name, <catalog>:<name>, a folder (./name) or a git address; remove: a name")
     p.add_argument("--name")
+    p = sub.add_parser("catalog", help="the catalogs of workflows that can be installed by name")
+    p.add_argument("action", choices=["add", "list", "remove"])
+    p.add_argument("id", nargs="?", help="the catalog's name (public is the public catalog)")
+    p.add_argument("url", nargs="?", help="add: the catalog's git address")
     p = sub.add_parser("runs", help="list the runs started on this computer")
     p.add_argument("--rebuild", metavar="FOLDER", help="scan FOLDER for runs and add them to the index")
     p = sub.add_parser("config", help="show or change your settings: durweg config language en|zh")
@@ -418,7 +476,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     fn = {"start": cmd_start, "begin": cmd_begin, "propose": cmd_propose, "confirm": cmd_confirm,
           "done": cmd_done, "reopen": cmd_reopen, "status": cmd_status, "render": cmd_render,
-          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "runs": cmd_runs, "uninstall": cmd_uninstall, "config": cmd_config}[a.cmd]
+          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "catalog": cmd_catalog, "runs": cmd_runs, "uninstall": cmd_uninstall, "config": cmd_config}[a.cmd]
     try:
         rc = fn(a)
     except WfError as e:

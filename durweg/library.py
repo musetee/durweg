@@ -1,6 +1,8 @@
 """The method library in ~/Durweg (plan 2.4) and the index of runs.
 
-~/Durweg/library.json   {"format": 1, "workflows": {name: {"path", "source", "url"?, "added"}}}
+~/Durweg/library.json   {"format": 1, "workflows": {name: {"path", "source", "url"?, "added",
+                                                      "branch"?, "commit"?, "catalog"?}}}
+                        (the ?-fields are new in v1.1 and optional: v1.0 files stay valid)
 ~/Durweg/runs.json      {"format": 1, "runs": [{"run", "path", "workflow", "library", "started"}]}
 
 The library only says where a workflow is. A run never reads it again: `durweg start` snapshots the
@@ -10,12 +12,10 @@ folders in the projects are the record, and `durweg runs --rebuild <folder>` reb
 
 import os
 import re
-import shutil
-import subprocess
 from pathlib import Path
 
 from . import workflow
-from .util import RunLock, WfError, now, read_json, write_json
+from .util import RunLock, WfError, now, read_json, rmtree, write_json
 
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 GIT_URL = re.compile(r"^(https?://|git@|ssh://)|\.git$")
@@ -54,41 +54,102 @@ def looks_like_path(arg):
 
 # -- library ----------------------------------------------------------------------------
 def add(target, name=None):
+    """Plan v1.1 C1 (revision 2), in this order:
+    1. a git address -> clone it;  2. <catalog>:<name> -> that catalog only;
+    3. anything that looks like a path -> that folder (as in v1.0);
+    4. a single word: a folder of that name here, or a catalog entry; both -> refuse, say which to write.
+    Returns (name, path, note)."""
+    from . import catalog
     home().mkdir(parents=True, exist_ok=True)
     if GIT_URL.search(target):
-        if shutil.which("git") is None:
-            raise WfError("adding a workflow from a git address needs git, which is not installed; "
-                          "download the folder instead and add the folder")
-        name = name or Path(target.rstrip("/")).name.removesuffix(".git")
-        _check_name(name)
-        dest = home() / "workflows" / name
-        if dest.exists():
-            raise WfError(f"{dest} exists already")
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        r = subprocess.run(["git", "clone", "-q", target, str(dest)], capture_output=True, text=True)
-        if r.returncode != 0:
-            raise WfError(f"git clone failed: {r.stderr.strip()[:200]}")
-        path, source = dest, "git"
-    else:
-        # normalised and absolute, but links are kept: the example registered through
-        # .../durweg/current/... follows updates (a run's snapshot keeps its own copy anyway)
-        path, source = Path(os.path.normpath(Path(target).expanduser().absolute())), "folder"
-        if not path.is_dir():
-            raise WfError(f"{target} is not a folder")
+        return _add_git(target, name or Path(target.rstrip("/")).name.removesuffix(".git"))
+    m = catalog.QUALIFIED.match(target)
+    if m:
+        return _add_from_catalog(m.group(2), name, only=m.group(1))
+    if looks_like_path(target):
+        return _add_folder(target, name)
+    hits, notes = catalog.find(target)
+    here = Path(target).is_dir()
+    if here and hits:
+        raise WfError(f"{target} is both a folder here and a workflow in the catalog"
+                      f"{'s' if len(hits) > 1 else ''} {', '.join(c for c, _ in hits)}; write ./{target} "
+                      f"for the folder or {hits[0][0]}:{target} for the catalog entry")
+    if here:
+        return _add_folder(target, name)
+    if not hits:
+        hint = f" ({'; '.join(notes)})" if notes else ""
+        raise WfError(f"no folder named {target} here and no workflow {target} in the catalogs{hint}; "
+                      f"`durweg library available` lists what can be installed")
+    return _add_from_catalog(target, name, hits=hits, notes=notes)
+
+
+def _add_from_catalog(wf_name, name, only=None, hits=None, notes=None):
+    from . import catalog
+    if hits is None:
+        hits, notes = catalog.find(wf_name, only=only)
+        if not hits:
+            hint = f" ({'; '.join(notes)})" if notes else ""
+            raise WfError(f"no workflow {wf_name} in catalog {only}{hint}")
+    if len(hits) > 1:
+        raise WfError(f"{wf_name} is in more than one catalog; write one of: "
+                      + ", ".join(f"{c}:{wf_name}" for c, _ in hits))
+    cid, entry = hits[0]
+    got = _add_git(entry["url"], name or wf_name, catalog_id=cid)
+    note = "; ".join(x for x in [got[2]] + list(notes or []) if x) or None
+    return got[0], got[1], note
+
+
+def _add_git(url, name, catalog_id=None):
+    from . import gitops
+    gitops.need_git("adding a workflow from a git address")
+    _check_name(name)
+    if name in entries():
+        raise WfError(f"a workflow named {name} is in the library already "
+                      f"({entries()[name]['path']}); choose another with --name")
+    dest = home() / "workflows" / name
+    if dest.exists():
+        raise WfError(f"{dest} exists already")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        gitops.clone(url, dest)
+    except gitops.GitFailed as e:
+        rmtree(dest)
+        raise WfError(f"git clone of {gitops.redact(url)} failed: {e}")
+    try:
+        workflow.load(dest)                       # validates workflow.json
+        branch, commit = gitops.head_state(dest)
+        entry = {"path": str(dest), "source": "git", "url": url, "added": now(),
+                 "branch": branch, "commit": commit}
+        if catalog_id:
+            entry["catalog"] = catalog_id
+        _register(name, entry)
+    except BaseException:
+        rmtree(dest)                              # nothing half-installed is left behind
+        raise
+    return name, dest, None
+
+
+def _add_folder(target, name):
+    # normalised and absolute, but links are kept: the example registered through
+    # .../durweg/current/... follows updates (a run's snapshot keeps its own copy anyway)
+    path = Path(os.path.normpath(Path(target).expanduser().absolute()))
+    if not path.is_dir():
+        raise WfError(f"{target} is not a folder")
     wf = workflow.load(path)                       # validates workflow.json
     name = name or (wf.id if NAME.match(wf.id) else path.name.lower())
     _check_name(name)
+    _register(name, {"path": str(path), "source": "folder", "added": now()})
+    return name, path, None
+
+
+def _register(name, entry):
     with _IndexLock("library"):
         data = _load("library.json", "workflows")
         if name in data["workflows"]:
             raise WfError(f"a workflow named {name} is in the library already "
                           f"({data['workflows'][name]['path']}); choose another with --name")
-        entry = {"path": str(path), "source": source, "added": now()}
-        if source == "git":
-            entry["url"] = target
         data["workflows"][name] = entry
         write_json(home() / "library.json", data)
-    return name, path
 
 
 def _check_name(name):

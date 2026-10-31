@@ -135,3 +135,22 @@ class RunLock:
     def __exit__(self, *exc):
         self.path.unlink(missing_ok=True)
         return False
+
+
+def rmtree(path):
+    """shutil.rmtree that also removes read-only files (git objects on Windows); no error if absent."""
+    import shutil
+    import stat
+
+    def again(func, p, _exc):
+        try:
+            os.chmod(p, stat.S_IWRITE)
+            func(p)
+        except OSError:
+            pass
+    if Path(path).exists():
+        import sys
+        if sys.version_info >= (3, 12):
+            shutil.rmtree(path, onexc=again)
+        else:
+            shutil.rmtree(path, onerror=again)

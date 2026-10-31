@@ -13,6 +13,9 @@ commands, file names and step ids stay as they are.
 
 Start a run with `durweg start <name or folder> <name-of-this-run>`: a name from the library
 (`durweg library list`), or a folder (`./folder`); the run goes into `./runs/`.
+When the user asks what workflows exist or wants one they do not have yet: `durweg library available`
+lists what the catalogs offer; `durweg library add <name>` (or `<catalog>:<name>` when it says so)
+installs it. If a command says it has no access, tell the user that sentence; do not log in for them.
 
 ## The loop, for every step
 
