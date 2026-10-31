@@ -324,6 +324,13 @@ def cmd_runs(a):
     return 0
 
 
+def cmd_uninstall(a):
+    from .uninstall import uninstall
+    for line in uninstall(dry_run=a.dry_run):
+        print(line)
+    return 0
+
+
 def cmd_check(a):
     from .check import check
     return check(Path(a.run).expanduser().resolve())
@@ -376,6 +383,8 @@ def main(argv=None):
     p.add_argument("--name")
     p = sub.add_parser("runs", help="list the runs started on this computer")
     p.add_argument("--rebuild", metavar="FOLDER", help="scan FOLDER for runs and add them to the index")
+    p = sub.add_parser("uninstall", help="remove what the installer put on this computer (keeps ~/Durweg)")
+    p.add_argument("--dry-run", action="store_true")
     p = sub.add_parser("status")
     p.add_argument("run", nargs="?")
     p = sub.add_parser("render")
@@ -387,7 +396,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     fn = {"start": cmd_start, "begin": cmd_begin, "propose": cmd_propose, "confirm": cmd_confirm,
           "done": cmd_done, "reopen": cmd_reopen, "status": cmd_status, "render": cmd_render,
-          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "runs": cmd_runs}[a.cmd]
+          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "runs": cmd_runs, "uninstall": cmd_uninstall}[a.cmd]
     try:
         rc = fn(a)
     except WfError as e:

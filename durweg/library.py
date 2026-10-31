@@ -70,7 +70,9 @@ def add(target, name=None):
             raise WfError(f"git clone failed: {r.stderr.strip()[:200]}")
         path, source = dest, "git"
     else:
-        path, source = Path(target).expanduser().resolve(), "folder"
+        # normalised and absolute, but links are kept: the example registered through
+        # .../durweg/current/... follows updates (a run's snapshot keeps its own copy anyway)
+        path, source = Path(os.path.normpath(Path(target).expanduser().absolute())), "folder"
         if not path.is_dir():
             raise WfError(f"{target} is not a folder")
     wf = workflow.load(path)                       # validates workflow.json
@@ -111,7 +113,7 @@ def entries():
 def resolve(arg):
     """(path, library name or None) for the WORKFLOW argument of `durweg start`."""
     if looks_like_path(arg):
-        return Path(arg).expanduser().resolve(), None
+        return Path(os.path.normpath(Path(arg).expanduser().absolute())), None
     found = entries().get(arg)
     if not found:
         names = ", ".join(sorted(entries())) or "none yet"
