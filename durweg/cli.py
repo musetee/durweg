@@ -378,8 +378,28 @@ def cmd_update(a):
     return selfupdate.main_update()
 
 
+def cmd_publish(a):
+    """Plan v1.1 D5/C7: without --yes only shows what would happen."""
+    from . import publish
+    vis = "public" if a.public else "private" if a.private else None
+    p = publish.prepare(a.name, visibility=vis, repo=a.repo, license_choice=a.license, case=a.case,
+                        catalog_answer=a.catalog)
+    if not a.yes:
+        print(publish.show(p))
+        return 0
+    for line in publish.publish(p):
+        print(line)
+    return 0
+
+
 def cmd_catalog(a):
     from . import catalog
+    if a.action == "create-private":
+        from . import publish
+        cid = publish.create_private(publish.login())
+        print(f"your private catalog is {cid}: {catalog.gitops.redact(catalog.configured()[cid]['url'])}\n"
+              f"on another computer: durweg catalog add {cid} <this address>")
+        return 0
     if a.action == "list":
         for cid, e in sorted(catalog.configured().items()):
             state = "off" if e.get("disabled") else "on"
@@ -502,8 +522,19 @@ def main(argv=None):
     p.add_argument("--name")
     p.add_argument("--quiet", action="store_true", help="update: show only what changed or needs attention")
     p = sub.add_parser("update", help="update Durweg itself to the newest release, then the catalogs and workflows")
+    p = sub.add_parser("publish", help="put one of your workflows on GitHub (shows first; --yes does it)")
+    p.add_argument("name", help="a workflow in your library, from your own folder")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--public", action="store_true")
+    g.add_argument("--private", action="store_true")
+    p.add_argument("--repo", help="owner/name on GitHub (default: <you>/durweg-<name>)")
+    p.add_argument("--license", help="MIT, Apache-2.0, CC-BY-4.0 or none (when the folder has no LICENSE)")
+    p.add_argument("--case", help="a case page from ~/Durweg/cases/ to include")
+    p.add_argument("--catalog", choices=["yes", "no"], help="public: propose it to the public catalog; "
+                                                             "private: add it to your private catalog")
+    p.add_argument("--yes", action="store_true", help="the user said yes to what was shown: do it")
     p = sub.add_parser("catalog", help="the catalogs of workflows that can be installed by name")
-    p.add_argument("action", choices=["add", "list", "remove"])
+    p.add_argument("action", choices=["add", "list", "remove", "create-private"])
     p.add_argument("id", nargs="?", help="the catalog's name (public is the public catalog)")
     p.add_argument("url", nargs="?", help="add: the catalog's git address")
     p = sub.add_parser("runs", help="list the runs started on this computer")
@@ -524,7 +555,7 @@ def main(argv=None):
     a = ap.parse_args(argv)
     fn = {"start": cmd_start, "begin": cmd_begin, "propose": cmd_propose, "confirm": cmd_confirm,
           "done": cmd_done, "reopen": cmd_reopen, "status": cmd_status, "render": cmd_render,
-          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "catalog": cmd_catalog, "update": cmd_update, "runs": cmd_runs, "uninstall": cmd_uninstall, "config": cmd_config}[a.cmd]
+          "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "catalog": cmd_catalog, "update": cmd_update, "publish": cmd_publish, "runs": cmd_runs, "uninstall": cmd_uninstall, "config": cmd_config}[a.cmd]
     try:
         rc = fn(a)
     except WfError as e:

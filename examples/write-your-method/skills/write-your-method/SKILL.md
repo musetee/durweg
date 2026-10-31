@@ -77,3 +77,7 @@ from this run's record.
 
 At the end: `durweg check RUN` for this run too, and tell the user how to use their workflow from
 now on: "Run <name> with durweg."
+
+Then ask once whether they want to publish it on GitHub, so their other computers or other people
+can install it (it needs a GitHub account and `gh`). If not, stop here. If yes, follow "Publishing"
+in the skill run-workflow.

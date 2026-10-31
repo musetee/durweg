@@ -48,3 +48,17 @@ installs it. If a command says it has no access, tell the user that sentence; do
 - Call `durweg` plainly (one command per line or joined with `&&`): no comments, `$( )`, loops or
   background `&` around it, or the audit cannot count the call.
 - Always pass the run folder to the commands that change it.
+
+## Publishing
+
+When the user wants to share one of their own workflows (`durweg publish`), it goes in two steps,
+and only the user decides:
+
+1. `durweg publish <name>` shows the files, the GitHub repository and what happens with a catalog,
+   and lists what is still to answer. It publishes nothing.
+2. Ask the user each open question (public or private; the license if the folder has none; whether
+   to propose it to the public catalog, or to make or use their private catalog; a case page from
+   `~/Durweg/cases/` only if they name one). Run `durweg publish <name>` again with their answers
+   (`--public`/`--private`, `--license`, `--catalog yes|no`, `--case`) and show the user the list.
+3. Only after the user says yes to that list: the same command with `--yes`. Tell them the lines it
+   prints. If it says `gh` is missing or not logged in, tell them that sentence; do not log in for them.
