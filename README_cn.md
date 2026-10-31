@@ -42,6 +42,6 @@ Durweg 让 AI agent（Claude Code、Codex）按你自己的方法干活，每次
 
 ## 常见问题
 
-- **Windows 10：在安装窗口里登录不了 Claude。** Windows 10 的旧式命令行窗口显示不好现代的命令行程序。没有 Windows Terminal 就先从 Microsoft Store 安装，打开它，在里面运行安装程序：把 `Durweg-Install.bat` 拖进 Terminal 窗口，按回车。
+- **Windows 10：在安装窗口里登录不了 Claude。** Windows 10 的旧式命令行窗口显示不好现代的命令行程序。没有 Windows Terminal 就先从 Microsoft Store 安装，打开它，在里面运行安装程序：打开一个**命令提示符**标签页（标签旁边的 ˅），把 `Durweg-Install.bat` 拖进去，按回车。如果是 PowerShell 标签页，要先输入 `& `（& 加一个空格），再把文件拖进去，按回车。
 
 许可证：[MIT](LICENSE)。

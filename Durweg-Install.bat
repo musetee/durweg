@@ -131,7 +131,7 @@ function Install-PythonOrg {
     Remove-Item -Force $exe -ErrorAction SilentlyContinue
     if ($p.ExitCode -ne 0) { Stop-Install "The Python installer failed (exit $($p.ExitCode))." "Python 安装失败（退出码 $($p.ExitCode)）。" }
 }
-$Py = if ($env:DURWEG_TEST_PYTHON_DOWNLOAD) { $null } else { Find-Python }
+$Py = if ($env:DURWEG_TEST_PYTHON_DOWNLOAD) { $null } elseif ($env:DURWEG_TEST_PYTHON_EXE) { , @($env:DURWEG_TEST_PYTHON_EXE) } else { Find-Python }
 if (-not $Py) {
     if ((Get-Command winget -ErrorAction SilentlyContinue) -and -not $env:DURWEG_TEST_PYTHON_DOWNLOAD) {
         Say 'Installing Python 3.12 (winget)...' '正在安装 Python 3.12（winget）……'
@@ -200,7 +200,7 @@ $Mark = 'rem durweg launcher (written by Durweg-Install.bat)'
 if ((Test-Path $Launcher) -and -not ([IO.File]::ReadAllText($Launcher) -like "*$Mark*")) {
     Stop-Install "$Launcher belongs to another program; it is left as it is." "$Launcher 属于别的程序，保持原样不动。"   # V1-C-005
 }
-$pyLine = ($PyExe + ' ' + ($PyArgs -join ' ')).Trim()
+$pyLine = ('"' + $PyExe + '" ' + ($PyArgs -join ' ')).Trim()     # quoted: a user name may hold spaces (V1-C-007)
 [IO.File]::WriteAllText($Launcher, "@echo off`r`n$Mark`r`n$pyLine `"$New\bin\durweg`" %*`r`n", $Utf8)
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $pathEntries = @()

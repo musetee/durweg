@@ -66,7 +66,8 @@ weekly-report with durweg."
 
 - **Windows 10: the Claude login does not work in the installer window.** Windows 10's old console
   cannot show modern command-line programs well. Install Windows Terminal (Microsoft Store) if you do
-  not have it, open it, and run the installer there: drag `Durweg-Install.bat` into the Terminal
-  window and press Enter.
+  not have it, open it, and run the installer there: open a **Command Prompt** tab (the ˅ next to
+  the tabs), drag `Durweg-Install.bat` into it and press Enter. In a PowerShell tab, type `& ` first,
+  then drag the file in and press Enter.
 
 License: [MIT](LICENSE).

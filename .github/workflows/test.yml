@@ -88,6 +88,20 @@ jobs:
           if (Test-Path $D) { throw "launcher still there" }
           if (Test-Path "$env:LOCALAPPDATA\Durweg\v0.0.0-ci") { throw "platform still there" }
           if (-not (Test-Path "$HOME\Durweg\config.json")) { throw "config removed" }
+      - name: Python in a folder with spaces (V1-C-007)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:DURWEG_SOURCE = "$env:RUNNER_TEMP\pkg\durweg-v0.0.0-ci.zip"
+          $env:DURWEG_SHA256 = ((Get-Content "$env:DURWEG_SOURCE.sha256") -split '\s+')[0]
+          $j = "C:\py with space"
+          New-Item -ItemType Junction -Path $j -Target (Split-Path (Get-Command python).Source) | Out-Null
+          $env:DURWEG_TEST_PYTHON_EXE = "$j\python.exe"
+          cmd /c Durweg-Install.bat
+          if ($LASTEXITCODE -ne 0) { throw "installer exit $LASTEXITCODE" }
+          $D = "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd"
+          if (-not ((Get-Content $D) -match '"C:\\py with space\\python.exe"')) { throw "python path not quoted" }
+          & $D --version; if ($LASTEXITCODE -ne 0) { throw "durweg.cmd fails with a spaced python path" }
       - name: install without winget or Python (Windows Sandbox case)
         if: runner.os == 'Windows'
         shell: pwsh
