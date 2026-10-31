@@ -268,9 +268,26 @@ if ((Test-Path $Launcher) -and -not ([IO.File]::ReadAllText($Launcher) -like "*$
     Stop-Install "$Launcher belongs to another program; it is left as it is." "$Launcher 属于别的程序，保持原样不动。"   # V1-C-005
 }
 $pyLine = ('"' + $PyExe + '" ' + ($PyArgs -join ' ')).Trim()     # quoted: a user name may hold spaces (V1-C-007)
-# one line that ends the batch file: durweg update rewrites this file while cmd.exe is still in it,
-# and cmd.exe reads a batch file line by line, so nothing after the command may be read (plan v1.1 U1)
-[IO.File]::WriteAllText($Launcher, "@echo off`r`n$Mark`r`n$pyLine `"$New\bin\durweg`" %* & exit /b`r`n", $Utf8)
+# durweg.cmd never names a version: it runs bin\durweg-run.py, which reads bin\current.txt. So an
+# update leaves durweg.cmd byte for byte as it was - durweg update runs inside it, and cmd.exe reads
+# a batch file line by line while it runs, so a changed file could be read on from the wrong place
+# (plan v1.1 U1)
+$Runner = Join-Path $BinDir 'durweg-run.py'
+$runPy = @'
+"""durweg.cmd runs this; bin/current.txt names the installed version's folder (Durweg-Install.bat)."""
+import os, runpy, sys
+here = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(here, "current.txt"), encoding="utf-8-sig") as f:
+    script = os.path.join(f.read().strip(), "bin", "durweg")
+sys.argv[0] = script
+runpy.run_path(script, run_name="__main__")
+'@
+[IO.File]::WriteAllText($Runner, ($runPy -replace "`r?`n", "`r`n"), $Utf8)
+[IO.File]::WriteAllText((Join-Path $BinDir 'current.txt'), $New, $Utf8)
+$launch = "@echo off`r`n$Mark`r`n$pyLine `"$Runner`" %*`r`n"
+if (-not (Test-Path $Launcher) -or [IO.File]::ReadAllText($Launcher) -ne $launch) {
+    [IO.File]::WriteAllText($Launcher, $launch, $Utf8)
+}
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $pathEntries = @()
 if (-not (($userPath -split ';') -contains $BinDir)) {

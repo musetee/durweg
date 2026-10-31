@@ -100,8 +100,9 @@ jobs:
           cmd /c Durweg-Install.bat
           if ($LASTEXITCODE -ne 0) { throw "installer exit $LASTEXITCODE" }
           $D = "$env:LOCALAPPDATA\Durweg\bin\durweg.cmd"
-          # the one-line launcher still hands back the exit code
-          & $D start no-such-workflow x; if ($LASTEXITCODE -eq 0) { throw "launcher lost the exit code" }
+          # the launcher hands back durweg's exit code
+          & $D start no-such-workflow x; if ($LASTEXITCODE -ne 1) { throw "launcher exit code $LASTEXITCODE, not 1" }
+          $before = [IO.File]::ReadAllBytes($D)
           Remove-Item Env:DURWEG_VERSION
           $env:DURWEG_UPDATE_LATEST = "v0.0.2"
           $env:DURWEG_UPDATE_INSTALLER = "$PWD\Durweg-Install.bat"
@@ -110,10 +111,11 @@ jobs:
           $out = & $D update 2>&1 | Out-String; $rcode = $LASTEXITCODE; $out
           if ($rcode -ne 0) { throw "update exit $rcode" }
           if ($out -notmatch 'updated\s+v0\.0\.1 -> v0\.0\.2') { throw "not updated" }
-          # durweg update rewrote the durweg.cmd that was running it: cmd.exe must not read on
-          if ($out -match 'is not recognized|not recognised') { throw "cmd.exe read on in the rewritten launcher" }
+          if ($out -match 'is not recognized|not recognised') { throw "cmd.exe read on in the launcher" }
           if ((Get-Content "$HOME\Durweg\.install.json" -Raw | ConvertFrom-Json).version -ne 'v0.0.2') { throw "manifest" }
-          if (-not ((Get-Content $D) -match 'v0\.0\.2')) { throw "launcher not switched" }
+          if (-not ((Get-Content "$env:LOCALAPPDATA\Durweg\bin\current.txt") -match 'v0\.0\.2')) { throw "current.txt not switched" }
+          # durweg.cmd itself is byte for byte the same: nothing for cmd.exe to misread
+          if ([Convert]::ToBase64String([IO.File]::ReadAllBytes($D)) -ne [Convert]::ToBase64String($before)) { throw "durweg.cmd changed" }
           & $D --version; if ($LASTEXITCODE -ne 0) { throw "version after update" }
           $out = & $D update 2>&1 | Out-String; $out
           if ($out -notmatch 'unchanged\s+v0\.0\.2 is the newest') { throw "second update" }
