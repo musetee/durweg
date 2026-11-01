@@ -20,7 +20,7 @@ flowchart TD
     D -->|Passes checks| E
 ```
 
-Each step must pass before work moves on. If a check fails or you request changes, the work is revised and reviewed again. Steps can use different skills; Durweg manages the order, checks, your approval and records. You could build this yourself with skills; Durweg is the ready-made tool for it.
+Each step must pass before work moves on. If a check fails or you request changes, the work is revised and reviewed again. Steps can use different skills and plugins; Durweg manages the order, checks, your approval and records. You could build this yourself with skills or plugins, but a plugin works in one kind of AI only; Durweg is the ready-made tool for it, and works with Claude Code and Codex alike.
 
 ## 💻 System requirements
 

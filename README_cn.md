@@ -20,7 +20,7 @@ flowchart TD
     D -->|验收合格| E
 ```
 
-每一步通过验收才往下走；检查没过，或你要求修改，就修改后再验收。步骤里可以用不同的 skill，Durweg 管先后顺序、验收、你的确认和记录。这些用 skill 也能自己搭，Durweg 把它做成了现成工具。
+每一步通过验收才往下走；检查没过，或你要求修改，就修改后再验收。步骤里可以用不同的 skill 和 plugin，Durweg 管先后顺序、验收、你的确认和记录。这些用 skill 或 plugin 也能自己搭，但 plugin 只能用在一种 AI 上；Durweg 把它做成了现成工具，Claude Code 和 Codex 都能用。
 
 ## 💻 系统要求
 
