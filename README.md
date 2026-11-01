@@ -68,7 +68,7 @@ Durweg too.
 | :--- | :--- |
 | **Windows**<br>(with or without WSL) | • Download [`Durweg-Install.bat`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install.bat) and double-click it in Windows<br>• To install into WSL, use it too and choose WSL in the installer; you do not open WSL or type commands yourself |
 | **Mac** | Download [`Durweg-Install-macOS.zip`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install-macOS.zip), unzip it and double-click `Durweg-Install.command` |
-| **Linux**<br>(not WSL on Windows) | In a terminal, run:<br>`curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.2.1/install.sh \| bash` |
+| **Linux**<br>(not WSL on Windows) | In a terminal, run:<br>`curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.3.0/install.sh \| bash` |
 
 The installer asks for your language first (on Windows also where to install: Windows or WSL),
 sets everything up, opens this page in your browser, starts your agent, which first asks whether to walk you through the [example](#-example-write-down-your-method) now; say no, and it tells you how to start it later.
