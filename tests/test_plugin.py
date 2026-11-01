@@ -21,7 +21,7 @@ class PluginCopy(unittest.TestCase):
     subprocess with its own HOME and DURWEG_HOME, as Claude Code would run it from its cache."""
 
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix="durweg-plugin-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="durweg-plugin-")).resolve()   # durweg records real paths (macOS /private, Windows long names)
         self.plugin = self.tmp / "cache" / "durweg" / "durweg" / "1.0.0"
         for part in ("durweg", "bin", "examples", "skills", ".claude-plugin"):
             shutil.copytree(ROOT / part, self.plugin / part,
