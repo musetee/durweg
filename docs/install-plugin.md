@@ -1,0 +1,66 @@
+[← README](../README.md) · [中文](install-plugin_cn.md)
+
+# Installing Durweg as a Claude Code plugin
+
+If you already use Claude Code, you can install Durweg from inside it with one command: nothing to
+download, no second terminal. You get the same `durweg` command and the same skills as with the
+installer, and the same `~/Durweg` folder with your workflows.
+
+This first version of the plugin works on **macOS, Linux and WSL on Windows**. On Windows itself
+(not WSL), use the installer from the [README](../README.md) for now.
+
+## 💻 What you need
+
+| Program | Check it in Claude Code by typing | If it is missing |
+| :--- | :--- | :--- |
+| Claude Code, signed in | `/status` | [Install Claude Code](https://code.claude.com/docs/en/setup) |
+| Python 3.9 or newer | `! python3 --version` | • Mac: `xcode-select --install`<br>• Debian or Ubuntu (also WSL): `sudo apt-get install -y python3` |
+| git | `! git --version` | • Mac: `xcode-select --install`<br>• Debian or Ubuntu (also WSL): `sudo apt-get install -y git` |
+
+`! claude --version` shows the version of Claude Code: the one-command install below needs 2.1.275
+or newer (`! claude update` brings it there).
+
+## 🧭 Install
+
+1. Open Claude Code where you usually work.
+2. Type `/plugin install durweg --marketplace musetee/durweg` and press Enter.
+3. Type `/reload-plugins` and press Enter, so that this session sees the plugin.
+
+With an older Claude Code, step 2 is two commands instead: `/plugin marketplace add musetee/durweg`,
+then `/plugin install durweg@durweg`.
+
+**It worked when** `! durweg --version` shows a version followed by `(Claude Code plugin)`. If it
+says `command not found` right after `/reload-plugins`, try once more: the session sometimes picks
+up the new command only on the next try.
+
+## 🚀 First try
+
+Tell Claude: `Run write-your-method with durweg.` The first time, Claude asks whether you want to be
+talked to in Chinese or English. Then it helps you write down one way you do your work as a
+workflow, step by step, and asks you to check and confirm along the way. It ends when
+`durweg check` shows `PASS`.
+
+The example is already in your library; Durweg puts it there the first time it runs. Other
+workflows are installed the same way as with the installer: ask Claude for one, or see
+`durweg library available` and `durweg library add <name>`.
+
+## 📅 Updating and removing
+
+| You want to | Do this |
+| :--- | :--- |
+| Update Durweg itself | `/plugin update durweg`, then `/reload-plugins`. Plugins from this marketplace are not updated automatically. |
+| Update your workflows and catalogs | `durweg update`. Its Durweg line says `skipped … /plugin update durweg`: that is expected. |
+| Remove Durweg | `/plugin uninstall durweg`. Your `~/Durweg` folder and your runs stay. |
+
+## 🛠️ If you installed with the installer before
+
+Both can be installed at the same time, but then the installer's copy is the one that runs (it
+comes first on the PATH), and `durweg --version` does not say `(Claude Code plugin)`. To keep only
+the plugin:
+
+1. Run `! durweg uninstall`. It removes the installer's copy and the skills it gave your agents
+   (for Codex too, if it gave them to Codex: keep the installer if you also use Codex); the
+   plugin's own skills, your `~/Durweg` folder and your runs stay.
+2. Type `/reload-plugins` (or start Claude Code again), so that the plugin's `durweg` is used.
+
+To keep only the installer instead, run `/plugin uninstall durweg`.
