@@ -32,6 +32,12 @@ flowchart TD
 
 ## 🧭 安装
 
+> 🤖 **嫌麻烦？** 把这句话发给你电脑上的 AI（Claude Code、Codex 等）：
+>
+> `请按 https://github.com/musetee/durweg/blob/main/docs/install-with-your-ai.md 帮我安装 Durweg。`
+>
+> 它会自己判断你的电脑、运行安装程序；装好以后，重新启动你的 AI。网页上的聊天 AI 碰不到你的电脑，装不了。
+
 不需要 GitHub 账号。需要 Claude Code 或 Codex 的账号（用量算在你自己的套餐里）；电脑上还没有 agent 的，安装程序会帮你装。已经装了 Antigravity 的，它也会一起用上 Durweg。
 
 **运行安装程序**（按你的电脑选一行）：

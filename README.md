@@ -32,6 +32,12 @@ Each step must pass before work moves on. If a check fails or you request change
 
 ## 🧭 Install
 
+> 🤖 **Rather not do it yourself?** Send this to the AI on your computer (Claude Code, Codex …):
+>
+> `Please install Durweg for me as described in https://github.com/musetee/durweg/blob/main/docs/install-with-your-ai.md`
+>
+> It finds out which computer you have and runs the installer; when it is done, start your AI again. An AI chat in the browser cannot reach your computer and cannot do this.
+
 You need no GitHub account. You need an account for Claude Code or Codex (use counts against your
 own plan); if neither is on your computer yet, the installer installs one. If you have Antigravity, it gets
 Durweg too.
