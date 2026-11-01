@@ -1,4 +1,4 @@
-"""Durweg as the Claude Code plugin (plan durweg-dev 20261101_durweg-claude-plugin.md, 4.1–4.6)."""
+"""Durweg as the Claude Code plugin: the plugin mode, the launchers, the release packages."""
 
 import json
 import os
@@ -166,7 +166,7 @@ def find_sh():
 
 class Launchers(unittest.TestCase):
     """bin/durweg read by sh and bin/durweg.cmd: the bare command, the order of the Pythons they
-    try, and the message when none fits (plan durweg-dev 20261101_durweg-plugin-windows.md, 4)."""
+    try, and the message when none fits."""
 
     def setUp(self):
         self.sh = find_sh()
@@ -275,6 +275,24 @@ class Launchers(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         lib = json.loads((self.tmp / "Durweg" / "library.json").read_text(encoding="utf-8"))["workflows"]
         self.assertTrue(Path(lib["spaced"]["path"]).samefile(flow))
+
+    @unittest.skipUnless(WINDOWS, "cmd")
+    def test_cmd_percent_signs_are_kept(self):
+        # a literal %...% in the plugin's path and in an argument reaches durweg unchanged: no second
+        # expansion (CALL would do one). The variable does not exist: cmd /c keeps an unknown %NAME%
+        # as it is on its command line, while a second expansion inside the batch file would drop it
+        if shutil.which("py") is None:
+            self.fail("no py launcher on this Windows")
+        self.env.pop("DURWEG_NO_SUCH_VAR", None)
+        moved = self.tmp / "plugin %DURWEG_NO_SUCH_VAR% dir"
+        shutil.move(str(self.plugin.parent), str(moved))
+        self.plugin = moved / "durweg"
+        flow = self.tmp / "flow %DURWEG_NO_SUCH_VAR% x"
+        shutil.copytree(ROOT / "examples" / "mini", flow)
+        r = self.cmd_run("library", "add", str(flow), "--name", "percent")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        lib = json.loads((self.tmp / "Durweg" / "library.json").read_text(encoding="utf-8"))["workflows"]
+        self.assertEqual(os.path.normcase(lib["percent"]["path"]), os.path.normcase(str(flow)))
 
     @unittest.skipUnless(WINDOWS, "cmd")
     def test_cmd_none_fits(self):

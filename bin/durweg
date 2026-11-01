@@ -10,7 +10,7 @@ exit 3
 """
 # Python part: the launcher. Read by sh (above) and by Python alike: the installers run this file
 # with Python directly (install.sh, durweg-run.py via runpy, bin/durweg.cmd). It works from a
-# symlink in ~/.local/bin. Plan durweg-dev 20261101_durweg-plugin-windows.md.
+# symlink in ~/.local/bin.
 import os
 import sys
 
