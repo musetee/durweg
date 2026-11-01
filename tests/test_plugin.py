@@ -250,9 +250,11 @@ class Launchers(unittest.TestCase):
 
     def cmd_run(self, *args):
         env = dict(self.env, PATH=str(self.fake) + os.pathsep + self.env.get("PATH", ""))
-        return subprocess.run(["cmd", "/d", "/c", str(self.plugin / "bin" / "durweg.cmd"), *args], env=env,
-                              capture_output=True, text=True, encoding="utf-8", errors="replace",
-                              cwd=str(self.tmp))
+        # cmd /s /c ""<path>" <args>": the outer quotes are cmd's own, so a path with spaces and quoted
+        # arguments stay intact (the way PowerShell runs a .cmd); a plain list would lose two quotes
+        inner = subprocess.list2cmdline([str(self.plugin / "bin" / "durweg.cmd"), *args])
+        return subprocess.run(f'cmd /d /s /c "{inner}"', env=env, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", cwd=str(self.tmp))
 
     @unittest.skipUnless(WINDOWS, "cmd")
     def test_cmd_py_fails_then_python(self):
