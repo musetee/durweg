@@ -2,7 +2,7 @@
 # Durweg-Install.command: double-click on macOS to install Durweg (also runs on Linux).
 # It runs install.sh of this Durweg version. A durweg-rc.json next to this file names a release
 # candidate package instead ({"version", "tar", "tar_sha256", optional "guide"}): used for testing before a release.
-VERSION="v1.1.2"
+VERSION="v1.2.0"
 here="$(cd "$(dirname "$0")" && pwd)"
 cd "$HOME" || exit 1
 rc="$here/durweg-rc.json"

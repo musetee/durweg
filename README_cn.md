@@ -48,7 +48,7 @@ flowchart TD
 | :--- | :--- |
 | **Windows**<br>（不管有没有 WSL） | • 下载 [`Durweg-Install.bat`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install.bat)，在 Windows 里双击<br>• 想装进 WSL 也用它：在安装程序里选 WSL，不用自己打开 WSL 输命令 |
 | **Mac** | 下载 [`Durweg-Install-macOS.zip`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install-macOS.zip)，解压后双击 `Durweg-Install.command` |
-| **Linux**<br>（不是 Windows 里的 WSL） | 在终端里运行：<br>`curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.1.2/install.sh \| bash` |
+| **Linux**<br>（不是 Windows 里的 WSL） | 在终端里运行：<br>`curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.2.0/install.sh \| bash` |
 
 安装程序先问语言，Windows 上再问装在哪里（Windows 还是 WSL），然后自动装好，在浏览器里打开这个页面，启动你的 agent；它先问你要不要现在一起做[案例](#-案例写下你的方法)，不想做就说不要，它会告诉你以后怎么开始。途中遇到的每个提问怎么答：见本页最后的[安装时会遇到的提问](#-安装时会遇到的提问)。
 
