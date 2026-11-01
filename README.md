@@ -34,9 +34,14 @@ Each step must pass before work moves on. If a check fails or you request change
 
 ## 🧭 Install
 
-There are two ways; both give you the same Durweg and the same `~/Durweg` folder.
+**Two ways: pick one (they are not two steps).** Both give you the same Durweg and the same `~/Durweg` folder.
 
-### With Claude Code: as a plugin
+| Your situation | Use |
+| :--- | :--- |
+| You already use Claude Code | [Option A: as a Claude Code plugin](#option-a-as-a-claude-code-plugin) |
+| No AI agent on your computer yet, or you use Codex or Antigravity | [Option B: with the installer](#option-b-with-the-installer) |
+
+### Option A: as a Claude Code plugin
 
 If you already use Claude Code (on Windows, Mac, Linux or WSL) and have Python 3.9 or newer and git:
 
@@ -48,7 +53,9 @@ If you already use Claude Code (on Windows, Mac, Linux or WSL) and have Python 3
 Updating, removing and an older Claude Code:
 [Installing Durweg as a Claude Code plugin](docs/install-plugin.md).
 
-### With the installer
+✅ Done: skip Option B below and go on with [Every day](#-every-day).
+
+### Option B: with the installer
 
 For Windows, Mac and Linux, also when you have no AI agent yet.
 

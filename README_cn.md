@@ -34,9 +34,14 @@ flowchart TD
 
 ## 🧭 安装
 
-有两种装法，装好的 Durweg 和 `~/Durweg` 文件夹都一样。
+**两种方式，选一种就行（不是先后两步）。** 装好的 Durweg 和 `~/Durweg` 文件夹都一样。
 
-### 用 Claude Code：装成插件
+| 你的情况 | 用哪种 |
+| :--- | :--- |
+| 已经在用 Claude Code | [方式 A：装成 Claude Code 插件](#方式-a装成-claude-code-插件) |
+| 电脑上还没有 AI agent，或者用的是 Codex、Antigravity | [方式 B：用安装程序](#方式-b用安装程序) |
+
+### 方式 A：装成 Claude Code 插件
 
 如果你已经在用 Claude Code（Windows、Mac、Linux、WSL 都行），并且有 Python 3.9 或更新版本和 git：
 
@@ -46,7 +51,9 @@ flowchart TD
 
 更新、卸载、旧版 Claude Code 怎么装：见[把 Durweg 装成 Claude Code 插件](docs/install-plugin_cn.md)。
 
-### 用安装程序
+✅ 装好了：下面的方式 B 不用看，接着看[每天怎么用](#-每天怎么用)。
+
+### 方式 B：用安装程序
 
 Windows、Mac、Linux 都能用，电脑上还没有 AI agent 也可以。
 
