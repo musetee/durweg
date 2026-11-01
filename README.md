@@ -2,7 +2,7 @@
 
 # Durweg
 
-**Durweg turns your way of working into a reusable workflow for AI, with checks at every step before it can be marked complete.**
+**Durweg puts you in control of AI workflows: work is delivered step by step, and you review, request changes, and approve before it moves past your checkpoints.**
 
 For example, a weekly report:
 
