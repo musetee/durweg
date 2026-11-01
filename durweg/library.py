@@ -322,8 +322,10 @@ def ensure_plugin_example(root):
                     old = e.get("path", "")
                     if old == path:
                         return
-                    if Path(old).exists() and _versions_dir(old) != _versions_dir(path):
-                        return              # the other agent's plugin, still there: left alone
+                    # left alone while it points to another existing copy: the other agent's plugin,
+                    # or a developer's source checkout (CX-C-001: a plugin does not take it from those)
+                    if old and Path(old).exists() and _versions_dir(old) != _versions_dir(path):
+                        return
                     e["path"] = path        # gone, or the same plugin in another version (an update)
                 elif Path(e.get("path", "")).exists():
                     return                  # the installer's or the user's own: left alone
