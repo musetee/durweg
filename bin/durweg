@@ -1,5 +1,16 @@
-#!/usr/bin/env python3
-"""Launcher: works from a symlink in ~/.local/bin."""
+#!/bin/sh
+"""": # sh part: find a Python 3.9+ (python3, python, py -3) and run this file with it
+for py in python3 python "py -3"; do
+    if $py -c 'import sys; sys.exit(sys.version_info < (3, 9))' >/dev/null 2>&1; then
+        exec $py "$0" "$@"
+    fi
+done
+echo "durweg: needs Python 3.9 or newer (python3, python or py -3); none was found" >&2
+exit 3
+"""
+# Python part: the launcher. Read by sh (above) and by Python alike: the installers run this file
+# with Python directly (install.sh, durweg-run.py via runpy, bin/durweg.cmd). It works from a
+# symlink in ~/.local/bin. Plan durweg-dev 20261101_durweg-plugin-windows.md.
 import os
 import sys
 

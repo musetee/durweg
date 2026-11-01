@@ -1,2 +1,5 @@
 .claude-plugin export-ignore
 .gitattributes export-ignore
+# bin/durweg is read by sh too: LF on every checkout (Windows git defaults to CRLF)
+bin/durweg text eol=lf
+bin/durweg.cmd text eol=crlf

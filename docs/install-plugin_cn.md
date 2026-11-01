@@ -4,15 +4,15 @@
 
 如果你已经在用 Claude Code，可以在 Claude Code 里用一条命令装好 Durweg：不用下载文件，也不用另开终端。装好后的 `durweg` 命令和 skill 跟安装器装的一样，你的工作流也照样放在 `~/Durweg` 文件夹里。
 
-插件的第一版支持 **macOS、Linux 和 Windows 里的 WSL**。在 Windows 本身（不是 WSL）上，暂时请用 [README](../README_cn.md) 里的安装器。
+插件支持 **Windows、macOS、Linux 和 Windows 里的 WSL**。
 
 ## 💻 需要什么
 
 | 程序 | 在 Claude Code 里输入这个来检查 | 没有或版本较旧的话 |
 | :--- | :--- | :--- |
 | Claude Code，已登录 | `/status` | [安装 Claude Code](https://code.claude.com/docs/en/setup) |
-| Python 3.9 或更新 | `! python3 --version` | • Mac：`xcode-select --install`；低于 3.9：在“系统设置 → 通用 → 软件更新”里更新<br>• Debian 或 Ubuntu（WSL 也是）：`sudo apt-get install -y python3` |
-| git | `! git --version` | • Mac：`xcode-select --install`<br>• Debian 或 Ubuntu（WSL 也是）：`sudo apt-get install -y git` |
+| Python 3.9 或更新 | `! python3 --version`<br>（Windows：`! py -3 --version`） | • Windows：`winget install -e --id Python.Python.3.12`<br>• Mac：`xcode-select --install`；低于 3.9：在“系统设置 → 通用 → 软件更新”里更新<br>• Debian 或 Ubuntu（WSL 也是）：`sudo apt-get install -y python3` |
+| git | `! git --version` | • Windows：Git for Windows 里带着，Claude Code 在 Windows 上本来就要它<br>• Mac：`xcode-select --install`<br>• Debian 或 Ubuntu（WSL 也是）：`sudo apt-get install -y git` |
 
 输入 `! claude --version` 可以看 Claude Code 的版本：下面用一条命令安装，需要 2.1.275 或更新（`! claude update` 可以升级）。
 
@@ -24,7 +24,7 @@
 
 如果 Claude Code 版本较旧，第 2 步改成两条命令：先 `/plugin marketplace add musetee/durweg`，再 `/plugin install durweg@durweg`。
 
-**装好的样子：** 输入 `! durweg --version`，显示版本号，后面跟着 `(Claude Code plugin)`。如果刚 `/reload-plugins` 完就提示 `command not found`，再试一次：会话有时要到下一次才认得新命令。
+**装好的样子：** 输入 `! durweg --version`，显示版本号，后面跟着 `(Claude Code plugin)`。如果显示 `needs Python 3.9 or newer`，按上面的表装好 Python 再试。如果刚 `/reload-plugins` 完就提示 `command not found`，再试一次：会话有时要到下一次才认得新命令。
 
 ## 🚀 第一次试用
 

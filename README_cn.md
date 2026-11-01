@@ -38,13 +38,13 @@ flowchart TD
 
 ### 用 Claude Code：装成插件
 
-如果你已经在 Mac、Linux 或 Windows 的 WSL 里用 Claude Code，并且有 Python 3.9 或更新版本和 git：
+如果你已经在用 Claude Code（Windows、Mac、Linux、WSL 都行），并且有 Python 3.9 或更新版本和 git：
 
 1. 在 Claude Code 里输入 `/plugin install durweg --marketplace musetee/durweg`。
 2. 输入 `/reload-plugins`。
 3. 对 Claude 说：`Run write-your-method with durweg.` 它会先问你用哪种语言，然后开始[案例](#-案例写下你的方法)。
 
-在 Windows 本身（不是 WSL）上，请用下面的安装程序。更新、卸载、旧版 Claude Code 怎么装：见[把 Durweg 装成 Claude Code 插件](docs/install-plugin_cn.md)。
+更新、卸载、旧版 Claude Code 怎么装：见[把 Durweg 装成 Claude Code 插件](docs/install-plugin_cn.md)。
 
 ### 用安装程序
 

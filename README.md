@@ -38,15 +38,14 @@ There are two ways; both give you the same Durweg and the same `~/Durweg` folder
 
 ### With Claude Code: as a plugin
 
-If you already use Claude Code on a Mac, on Linux or in WSL on Windows, and have Python 3.9 or newer
-and git:
+If you already use Claude Code (on Windows, Mac, Linux or WSL) and have Python 3.9 or newer and git:
 
 1. In Claude Code, type `/plugin install durweg --marketplace musetee/durweg`.
 2. Type `/reload-plugins`.
 3. Tell Claude: `Run write-your-method with durweg.` It first asks which language you want, then
    starts the [example](#-example-write-down-your-method).
 
-On Windows itself (not WSL), use the installer below. Updating, removing and an older Claude Code:
+Updating, removing and an older Claude Code:
 [Installing Durweg as a Claude Code plugin](docs/install-plugin.md).
 
 ### With the installer

@@ -149,6 +149,148 @@ class PluginCopy(unittest.TestCase):
         self.assertNotIn("plugin", self.run_durweg("--version").stdout)
 
 
+NEEDS = "needs Python 3.9 or newer"
+WINDOWS = os.name == "nt"
+
+
+def find_sh():
+    """Git for Windows' sh on Windows (never System32\\bash.exe, which is WSL), /bin/sh elsewhere."""
+    sh = shutil.which("sh")
+    if WINDOWS and sh is None:
+        for base in (os.environ.get("ProgramFiles", r"C:\Program Files"), r"C:\Program Files"):
+            cand = Path(base) / "Git" / "bin" / "sh.exe"
+            if cand.is_file():
+                return str(cand)
+    return sh
+
+
+class Launchers(unittest.TestCase):
+    """bin/durweg read by sh and bin/durweg.cmd: the bare command, the order of the Pythons they
+    try, and the message when none fits (plan durweg-dev 20261101_durweg-plugin-windows.md, 4)."""
+
+    def setUp(self):
+        self.sh = find_sh()
+        if self.sh is None:
+            if WINDOWS:
+                self.fail("Git for Windows' sh not found: the Windows checks must run (PW-R-001)")
+            self.skipTest("no sh")
+        self.tmp = Path(tempfile.mkdtemp(prefix="durweg launch ")).resolve()   # a space on purpose
+        self.plugin = self.tmp / "plugin dir" / "durweg"
+        for part in ("durweg", "bin", "examples", "skills", ".claude-plugin"):
+            shutil.copytree(ROOT / part, self.plugin / part,
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        self.fake = self.tmp / "fake"
+        self.fake.mkdir()
+        self.mark = self.tmp / "tried.txt"
+        self.env = {k: v for k, v in os.environ.items() if k != "DURWEG_PLUGIN"}
+        self.env.update(DURWEG_HOME=str(self.tmp / "Durweg"),
+                        DURWEG_PUBLIC_CATALOG=str(self.tmp / "no-public-catalog.git"),
+                        FAKE=str(self.fake), PLUGIN_BIN=str(self.plugin / "bin"),
+                        REAL_PY=sys.executable, MARK=str(self.mark))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    # fakes for sh: a failing one leaves a mark, a working one hands over to this Python
+    def fake_sh(self, name, works):
+        body = 'exec "$REAL_PY_U" "$@"\n' if works else 'echo "%s" >> "$MARK_U"; exit 1\n' % name
+        f = self.fake / name
+        f.write_bytes(("#!/bin/sh\n" + body).encode())
+        f.chmod(0o755)
+
+    def sh_run(self, line):
+        # Windows paths into Git Bash's form; fakes and the plugin's bin/ first on PATH
+        script = ('u() { if command -v cygpath >/dev/null 2>&1; then cygpath -u "$1"; else printf %s "$1"; fi; }\n'
+                  'export REAL_PY_U="$(u "$REAL_PY")" MARK_U="$(u "$MARK")"\n'
+                  'PATH="$(u "$FAKE"):$(u "$PLUGIN_BIN"):$PATH"\n' + line)
+        return subprocess.run([self.sh, "-c", script], env=self.env, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", cwd=str(self.tmp))
+
+    def test_bare_command_runs_the_plugin(self):
+        r = self.sh_run('type -a durweg; durweg --version')
+        print(f"\n[PW-R-001] type -a durweg / durweg --version on {sys.platform}:\n{r.stdout}{r.stderr}")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("(Claude Code plugin)", r.stdout)
+
+    def test_python3_fails_then_python(self):
+        self.fake_sh("python3", works=False)
+        self.fake_sh("python", works=True)
+        r = self.sh_run('"$(u "$PLUGIN_BIN")/durweg" --version')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("(Claude Code plugin)", r.stdout)
+        self.assertIn("python3", self.mark.read_text())          # tried first, then left alone
+
+    def test_none_fits(self):
+        for name in ("python3", "python", "py"):
+            self.fake_sh(name, works=False)
+        r = self.sh_run('"$(u "$PLUGIN_BIN")/durweg" --version')
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn(NEEDS, r.stderr)
+
+    @unittest.skipUnless(WINDOWS, "the py launcher is Windows'")
+    def test_windows_real_py_with_spaces(self):
+        if shutil.which("py") is None:
+            self.fail("no py launcher on this Windows: the py -3 path must be tested (PW-R-002)")
+        self.fake_sh("python3", works=False)
+        self.fake_sh("python", works=False)
+        flow = self.tmp / "my flow"
+        shutil.copytree(ROOT / "examples" / "mini", flow)
+        self.env["FLOW"] = str(flow)
+        r = self.sh_run('durweg library add "$FLOW" --name spaced && durweg library list')
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        lib = json.loads((self.tmp / "Durweg" / "library.json").read_text(encoding="utf-8"))["workflows"]
+        self.assertTrue(Path(lib["spaced"]["path"]).samefile(flow))
+        self.assertIn("python3", self.mark.read_text())
+        self.assertIn("python", self.mark.read_text().split())
+
+    # bin/durweg.cmd (PowerShell and cmd use it): the same order and message, with py -3 first
+    def fake_cmd(self, name, works):
+        line = f'@"{sys.executable}" %*\r\n' if works else f'@echo {name}>>"{self.mark}"\r\n@exit /b 1\r\n'
+        (self.fake / f"{name}.cmd").write_bytes(line.encode())
+
+    def cmd_run(self, *args):
+        env = dict(self.env, PATH=str(self.fake) + os.pathsep + self.env.get("PATH", ""))
+        return subprocess.run(["cmd", "/d", "/c", str(self.plugin / "bin" / "durweg.cmd"), *args], env=env,
+                              capture_output=True, text=True, encoding="utf-8", errors="replace",
+                              cwd=str(self.tmp))
+
+    @unittest.skipUnless(WINDOWS, "cmd")
+    def test_cmd_py_fails_then_python(self):
+        self.fake_cmd("py", works=False)
+        self.fake_cmd("python", works=True)
+        r = self.cmd_run("--version")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("(Claude Code plugin)", r.stdout)
+        self.assertIn("py", self.mark.read_text())
+
+    @unittest.skipUnless(WINDOWS, "cmd")
+    def test_cmd_real_py_with_spaces(self):
+        if shutil.which("py") is None:
+            self.fail("no py launcher on this Windows (PW-R-002)")
+        flow = self.tmp / "my flow"
+        shutil.copytree(ROOT / "examples" / "mini", flow)
+        r = self.cmd_run("library", "add", str(flow), "--name", "spaced")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        lib = json.loads((self.tmp / "Durweg" / "library.json").read_text(encoding="utf-8"))["workflows"]
+        self.assertTrue(Path(lib["spaced"]["path"]).samefile(flow))
+
+    @unittest.skipUnless(WINDOWS, "cmd")
+    def test_cmd_none_fits(self):
+        for name in ("py", "python", "python3"):
+            self.fake_cmd(name, works=False)
+        r = self.cmd_run("--version")
+        self.assertEqual(r.returncode, 3, r.stdout + r.stderr)
+        self.assertIn(NEEDS, r.stderr)
+
+    def test_bin_durweg_has_no_carriage_return(self):
+        # the checked-out file (on Windows CI after a CRLF-default checkout): .gitattributes eol=lf
+        self.assertNotIn(b"\r", (ROOT / "bin" / "durweg").read_bytes())
+        if shutil.which("git") and (ROOT / ".git").exists():
+            out = subprocess.run(["git", "-C", str(ROOT), "ls-files", "--eol", "bin/durweg"],
+                                 capture_output=True, text=True).stdout
+            self.assertIn("eol=lf", out)
+
+
 class ReleasePackage(unittest.TestCase):
     """The installer's packages never carry .claude-plugin (CP-R-001): git archive, as
     tools/build-release.sh makes them, and tools/package.py."""
@@ -184,6 +326,8 @@ class ReleasePackage(unittest.TestCase):
                     with tarfile.open(out) as t:
                         names = t.getnames()
                 self.assertTrue(any(n.startswith("d/durweg/") for n in names))
+                if fmt == "zip":
+                    self.assertNotIn(b"\r", zipfile.ZipFile(out).read("d/bin/durweg"))
                 self.assertFalse([n for n in names if ".claude-plugin" in n or ".gitattributes" in n], fmt)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)

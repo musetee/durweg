@@ -12,6 +12,8 @@ Before the first run, `durweg config` shows the language to talk to the user in 
 `en` English). If it says `not set yet`, ask the user once, in the language they are writing in,
 whether they want Chinese or English, then `durweg config language zh|en`. Commands, file names and
 step ids stay as they are.
+If `durweg` says `needs Python 3.9 or newer`, tell the user that sentence and ask whether to install
+Python now; install it only after they say yes, otherwise stop there.
 
 Start a run with `durweg start <name or folder> <name-of-this-run>`: a name from the library
 (`durweg library list`), or a folder (`./folder`); the run goes into `./runs/`.

@@ -6,16 +6,15 @@ If you already use Claude Code, you can install Durweg from inside it with one c
 download, no second terminal. You get the same `durweg` command and the same skills as with the
 installer, and the same `~/Durweg` folder with your workflows.
 
-This first version of the plugin works on **macOS, Linux and WSL on Windows**. On Windows itself
-(not WSL), use the installer from the [README](../README.md) for now.
+The plugin works on **Windows, macOS, Linux and WSL on Windows**.
 
 ## 💻 What you need
 
 | Program | Check it in Claude Code by typing | If it is missing or older |
 | :--- | :--- | :--- |
 | Claude Code, signed in | `/status` | [Install Claude Code](https://code.claude.com/docs/en/setup) |
-| Python 3.9 or newer | `! python3 --version` | • Mac: `xcode-select --install`; older than 3.9: update it in System Settings → General → Software Update<br>• Debian or Ubuntu (also WSL): `sudo apt-get install -y python3` |
-| git | `! git --version` | • Mac: `xcode-select --install`<br>• Debian or Ubuntu (also WSL): `sudo apt-get install -y git` |
+| Python 3.9 or newer | `! python3 --version`<br>(Windows: `! py -3 --version`) | • Windows: `winget install -e --id Python.Python.3.12`<br>• Mac: `xcode-select --install`; older than 3.9: update it in System Settings → General → Software Update<br>• Debian or Ubuntu (also WSL): `sudo apt-get install -y python3` |
+| git | `! git --version` | • Windows: comes with Git for Windows, which Claude Code needs there anyway<br>• Mac: `xcode-select --install`<br>• Debian or Ubuntu (also WSL): `sudo apt-get install -y git` |
 
 `! claude --version` shows the version of Claude Code: the one-command install below needs 2.1.275
 or newer (`! claude update` brings it there).
@@ -31,6 +30,7 @@ With an older Claude Code, step 2 is two commands instead: `/plugin marketplace 
 then `/plugin install durweg@durweg`.
 
 **It worked when** `! durweg --version` shows a version followed by `(Claude Code plugin)`. If it
+says `needs Python 3.9 or newer`, install Python (table above) and try again. If it
 says `command not found` right after `/reload-plugins`, try once more: the session sometimes picks
 up the new command only on the next try.
 
