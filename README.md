@@ -95,6 +95,19 @@ own words at each step and the lessons are on this case page (English, with a sw
 [A README for humans · Durweg case](https://claude.ai/artifact/LGnCog4wnBmgMAWJg1Xmi4).
 To use the workflow yourself: [durweg-human-readme](https://github.com/musetee/durweg-human-readme).
 
+## 🔐 Public and private workflows
+
+Your method can be shared with others, or kept to yourself:
+
+| | Public | Private |
+| :--- | :--- | :--- |
+| **Kept in** | A public GitHub repository | Your private GitHub repository |
+| **Listed in** | The public catalog: anyone can install it by name | Your private catalog |
+| **Who can use it** | Everyone | • Only you (and whoever you give access on GitHub)<br>• Each of your computers installs and updates it by name, after logging in with `gh` once on that computer |
+
+Tell your agent "Publish <name> with durweg"; it asks whether public or private, and the first time
+you publish a private one, whether to make your private catalog ([publishing](docs/publish.md)).
+
 ## 🙋 I want to …
 
 | I want to | How |

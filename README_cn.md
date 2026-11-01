@@ -74,6 +74,18 @@ agent 告诉你检查结果是 `PASS`，并且“列出我的 durweg 工作流�
 
 **一个真实的案例：** 用这个引导写出工作流 `human-readme`，再用它重写了 Durweg 自己的 README。方法、步骤、每一步用户的原话和经验都在这个案例网页里（中英文可以切换）：[人话README · Durweg 案例](https://claude.ai/artifact/LGnCog4wnBmgMAWJg1Xmi4#zh)。想自己用这个工作流：[durweg-human-readme](https://github.com/musetee/durweg-human-readme)。
 
+## 🔐 公开和私密的工作流
+
+你的方法可以分享给别人，也可以只留给自己：
+
+| | 公开 | 私密 |
+| :--- | :--- | :--- |
+| **放在** | 公开的 GitHub 仓库 | 你的私有 GitHub 仓库 |
+| **登记在** | 公开菜单，谁都能按名字安装 | 你的私人菜单 |
+| **谁能用** | 所有人 | • 只有你（以及你在 GitHub 上授权的人）<br>• 你的每台电脑都能按名字安装、更新，先在那台电脑上用 `gh` 登录一次 |
+
+对 agent 说“用 durweg 发布 <名字>”，它会问你公开还是私密；第一次发布私密工作流时，它会问你要不要建一个私人菜单（[发布](docs/publish_cn.md)）。
+
 ## 🙋 我想……
 
 | 我想 | 怎么做 |
