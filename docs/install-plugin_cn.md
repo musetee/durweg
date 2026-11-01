@@ -30,7 +30,7 @@
 
 对 Claude 说：`Run write-your-method with durweg.` 第一次时，Claude 会先问你用中文还是英文交流。然后它帮你把自己做某件事的方法一步一步写成工作流，过程中请你检查和确认。`durweg check` 显示 `PASS` 就完成了。
 
-这个示例已经在你的方法库里：Durweg 第一次运行时会把它放进去。别的工作流和用安装器时一样装：直接问 Claude 要，或者看 `durweg library available`，再 `durweg library add <名字>`。
+这个示例已经在你的方法库里：Durweg 第一次运行时会把它放进去。别的工作流和用安装器时一样装：直接问 Claude 要，或者运行 `! durweg library available`，再 `! durweg library add <名字>`。
 
 ## 📅 更新和卸载
 

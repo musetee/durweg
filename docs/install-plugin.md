@@ -41,8 +41,8 @@ workflow, step by step, and asks you to check and confirm along the way. It ends
 `durweg check` shows `PASS`.
 
 The example is already in your library; Durweg puts it there the first time it runs. Other
-workflows are installed the same way as with the installer: ask Claude for one, or see
-`durweg library available` and `durweg library add <name>`.
+workflows are installed the same way as with the installer: ask Claude for one, or run
+`! durweg library available`, then `! durweg library add <name>`.
 
 ## 📅 Updating and removing
 
