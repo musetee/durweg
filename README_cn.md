@@ -48,7 +48,7 @@ flowchart TD
 | **Mac** | 下载 [`Durweg-Install-macOS.zip`](https://github.com/musetee/durweg/releases/latest/download/Durweg-Install-macOS.zip)，解压后双击 `Durweg-Install.command` |
 | **Linux**<br>（不是 Windows 里的 WSL） | 在终端里运行：<br>`curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.1.1/install.sh \| bash` |
 
-安装程序先问语言，Windows 上再问装在哪里（Windows 还是 WSL），然后自动装好，在浏览器里打开这个页面，启动你的 agent，带你做[案例](#-案例写下你的方法)。途中遇到的每个提问怎么答：见本页最后的[安装时会遇到的提问](#-安装时会遇到的提问)。
+安装程序先问语言，Windows 上再问装在哪里（Windows 还是 WSL），然后自动装好，在浏览器里打开这个页面，启动你的 agent；它先问你要不要现在一起做[案例](#-案例写下你的方法)，不想做就说不要，它会告诉你以后怎么开始。途中遇到的每个提问怎么答：见本页最后的[安装时会遇到的提问](#-安装时会遇到的提问)。
 
 ## 📅 每天怎么用
 
@@ -62,7 +62,7 @@ flowchart TD
 
 ## 🚀 案例：写下你的方法
 
-这个案例展示 Durweg 怎么把你的一个固定做法变成工作流：以每周进度汇报为例，做出一个你自己的工作流 `weekly-report`，用它跑一次，最后写成一个可以收藏或分享给别人的案例网页。安装程序第一次会自动带你做；以后想再做一个，按下面的步骤。
+这个案例展示 Durweg 怎么把你的一个固定做法变成工作流：以每周进度汇报为例，做出一个你自己的工作流 `weekly-report`，用它跑一次，最后写成一个可以收藏或分享给别人的案例网页。装好后 agent 会问你要不要现在做；以后想做（或再做一个），按下面的步骤。
 
 1. **打开终端**（“每天怎么用”第 1 步）。
 2. **新建一个练习文件夹并进入：** `mkdir -p ~/projects/first-method && cd ~/projects/first-method`。这次运行的记录会放在这里。

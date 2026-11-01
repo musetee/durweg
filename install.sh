@@ -268,8 +268,8 @@ if [ -z "${DURWEG_NO_START:-}${DURWEG_NO_BROWSER:-}" ]; then
 fi
 
 # ---- start ------------------------------------------------------------------------------------
-first="$(t "Please talk to me in English. Use durweg to run the example write-your-method with me (skill run-workflow)." \
-           "请用中文和我交流。用 durweg 带我运行示例 write-your-method（skill run-workflow）。")"
+first="$(t "Please talk to me in English. Durweg has just been installed. First ask me whether to do the example write-your-method with me now (with skill run-workflow it turns one way I do my work into a workflow). If yes, start it; if not, tell me how to start it later." \
+           "请用中文和我交流。Durweg 刚装好。先问我要不要现在一起做示例 write-your-method（用 skill run-workflow，把我的一个做事方法写成工作流）；要就开始，不要就告诉我以后怎么开始。")"
 agent="${agents# }"; agent="${agent%% *}"
 echo
 say "Durweg is installed." "Durweg 装好了。"

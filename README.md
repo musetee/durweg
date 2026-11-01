@@ -51,7 +51,7 @@ Durweg too.
 | **Linux**<br>(not WSL on Windows) | In a terminal, run:<br>`curl -fsSL https://raw.githubusercontent.com/musetee/durweg/v1.1.1/install.sh \| bash` |
 
 The installer asks for your language first (on Windows also where to install: Windows or WSL),
-sets everything up, opens this page in your browser, starts your agent and walks you through the [example](#-example-write-down-your-method).
+sets everything up, opens this page in your browser, starts your agent, which first asks whether to walk you through the [example](#-example-write-down-your-method) now; say no, and it tells you how to start it later.
 What to answer at each question on the way: see [Questions during installation](#-questions-during-installation)
 at the end of this page.
 
@@ -73,8 +73,8 @@ at the end of this page.
 
 This example shows how Durweg turns one of your fixed ways of working into a workflow: taking the
 weekly status report, you make your own workflow `weekly-report`, run it once, and finally write it up as a case page
-to keep or share. The installer
-walks you through it the first time; to make another one later, follow these steps.
+to keep or share. After the installation your agent asks whether to do it now; to do it later (or make
+another one), follow these steps.
 
 1. **Open a terminal** (step 1 of "Every day").
 2. **Make a practice folder and go into it:** `mkdir -p ~/projects/first-method && cd ~/projects/first-method`.
