@@ -233,8 +233,8 @@ jobs:
         run: |
           Remove-Item Env:DURWEG_SOURCE -ErrorAction SilentlyContinue
           Remove-Item Env:DURWEG_SHA256 -ErrorAction SilentlyContinue
-          $env:DURWEG_VERSION = 'v1.1.2'
-          $env:DURWEG_TEST_SHA_URL = 'https://github.com/musetee/durweg/releases/download/v1.1.2/durweg-v1.1.2.zip.sha256'
+          $env:DURWEG_VERSION = 'v1.2.0'
+          $env:DURWEG_TEST_SHA_URL = 'https://github.com/musetee/durweg/releases/download/v1.2.0/durweg-v1.2.0.zip.sha256'
           $s = (cmd /c Durweg-Install.bat | Out-String).Trim()
           Remove-Item Env:DURWEG_TEST_SHA_URL
           if ($s -notmatch 'sha=[0-9a-f]{64}') { throw "checksum not read: $s" }
@@ -246,5 +246,5 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           unset DURWEG_SOURCE DURWEG_SHA256
-          DURWEG_VERSION=v1.1.2 bash install.sh
+          DURWEG_VERSION=v1.2.0 bash install.sh
           "$HOME/.local/bin/durweg" --version
