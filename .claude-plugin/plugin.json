@@ -1,0 +1,14 @@
+{
+  "name": "durweg",
+  "version": "1.1.2",
+  "description": "Run your own workflows step by step: the agent shows each result, you check, change and confirm before it goes on.",
+  "author": {
+    "name": "musetee"
+  },
+  "repository": "https://github.com/musetee/durweg",
+  "license": "MIT",
+  "skills": [
+    "./skills/",
+    "./examples/write-your-method/skills/"
+  ]
+}

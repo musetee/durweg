@@ -32,6 +32,20 @@ def current_platform():
     return "linux"
 
 
+def plugin_root():
+    """The folder of this Durweg when it runs as the Claude Code plugin, else None.
+    The plugin is the repository with .claude-plugin/plugin.json; the installer's package leaves
+    .claude-plugin out (.gitattributes export-ignore, tools/package.py). DURWEG_PLUGIN=0|1 overrides
+    the check (tests; plan CP-R-002)."""
+    root = Path(__file__).resolve().parent.parent
+    flag = os.environ.get("DURWEG_PLUGIN", "")
+    if flag == "0":
+        return None
+    if flag == "1":
+        return root
+    return root if (root / ".claude-plugin" / "plugin.json").is_file() else None
+
+
 def now():
     return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 

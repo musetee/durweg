@@ -14,7 +14,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SKIP = {".git", "dist", "__pycache__", "runs"}
+os.environ["DURWEG_PLUGIN"] = "0"     # the checkout has .claude-plugin/: the tests are not the plugin (CP-R-002)
+SKIP = {".git", "dist", "__pycache__", "runs", ".claude-plugin", ".gitattributes"}
 
 
 def build_package(dest, version):

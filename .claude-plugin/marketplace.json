@@ -1,0 +1,14 @@
+{
+  "name": "durweg",
+  "owner": {
+    "name": "musetee"
+  },
+  "description": "Durweg: the Claude Code plugin for running your own workflows step by step.",
+  "plugins": [
+    {
+      "name": "durweg",
+      "source": "./",
+      "description": "Run your own workflows step by step: the agent shows each result, you check, change and confirm before it goes on."
+    }
+  ]
+}

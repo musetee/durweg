@@ -8,8 +8,10 @@ description: Run a user's workflow step by step with the durweg tool - begin eac
 A workflow is a fixed way of working that the user wrote down. `durweg` keeps the order, checks each
 step's gates and records what happened, so the user can trust that every step was really done.
 Work only through these commands; they print `ok run=<id> event=<n>` when they succeed.
-Talk to the user in the language set in `~/Durweg/config.json` (`"zh"` Chinese, `"en"` English);
-commands, file names and step ids stay as they are.
+Before the first run, `durweg config` shows the language to talk to the user in (`zh` Chinese,
+`en` English). If it says `not set yet`, ask the user once, in the language they are writing in,
+whether they want Chinese or English, then `durweg config language zh|en`. Commands, file names and
+step ids stay as they are.
 
 Start a run with `durweg start <name or folder> <name-of-this-run>`: a name from the library
 (`durweg library list`), or a folder (`./folder`); the run goes into `./runs/`.

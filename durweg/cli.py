@@ -10,7 +10,7 @@ from pathlib import Path
 
 from . import gates, library, workflow
 from .state import STATE, RunState, replay
-from .util import RunLock, WfError, now, sha256_json, write_json
+from .util import RunLock, WfError, now, plugin_root, sha256_json, write_json
 
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
@@ -341,6 +341,11 @@ def _available():
     return 0
 
 
+def _normal_skip(detail):
+    """A skip that needs no attention: the user's own folder, or the example in the plugin."""
+    return detail.startswith("your own folder") or detail == library.PLUGIN_NOTE
+
+
 def _update(names, quiet=False):
     """Plan v1.1 C5: the catalogs, then every workflow Durweg cloned; one line each, then a sum.
     Exit 0 even when some were skipped or failed: those are reported, the rest is done.
@@ -361,7 +366,7 @@ def _update(names, quiet=False):
     shown = 0
     for name, status, detail in rows:
         counts[status] = counts.get(status, 0) + 1
-        if quiet and (status == "unchanged" or (status == "skipped" and detail.startswith("your own folder"))):
+        if quiet and (status == "unchanged" or (status == "skipped" and _normal_skip(detail))):
             continue
         print(f"{name:23} {status:9} {detail}")
         shown += 1
@@ -369,7 +374,7 @@ def _update(names, quiet=False):
         print("the library is empty")
     if shown or not quiet:
         print("summary: " + ", ".join(f"{counts.get(k, 0)} {k}" for k in ("updated", "unchanged", "skipped", "failed")))
-    attention = sum(1 for _, st, d in rows if st == "failed" or (st == "skipped" and not d.startswith("your own folder")))
+    attention = sum(1 for _, st, d in rows if st == "failed" or (st == "skipped" and not _normal_skip(d)))
     if attention:
         print("warning: some were not updated; the reasons are on their lines", file=sys.stderr)
     return 0
@@ -466,7 +471,8 @@ def cmd_config(a):
         write_json(p, cfg)
         print(f"language: {a.value} (agents use it from their next step on)")
     else:
-        print(f"{p}\nlanguage: {cfg.get('language', 'en')}")
+        lang = cfg.get("language")
+        print(f"{p}\nlanguage: " + (lang or "en (not set yet; run: durweg config language en|zh)"))
     return 0
 
 
@@ -500,7 +506,9 @@ def main(argv=None):
                 pass
     ap = argparse.ArgumentParser(prog="durweg", description=__doc__)
     from . import __version__
-    ap.add_argument("--version", action="version", version=f"durweg {__version__}")
+    root = plugin_root()
+    ap.add_argument("--version", action="version",
+                    version=f"durweg {__version__}" + (" (Claude Code plugin)" if root else ""))
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("start", help="start a run of a workflow")
     p.add_argument("workflow", help="a name in the library, or a folder with workflow.json (./name, /path)")
@@ -563,6 +571,8 @@ def main(argv=None):
     p = sub.add_parser("audit", help="optional plugin durweg-audit (not installed by default)")
     p.add_argument("rest", nargs=argparse.REMAINDER)
     a = ap.parse_args(argv)
+    if root is not None:                    # after parsing: --version and --help change nothing
+        library.ensure_plugin_example(root)
     fn = {"start": cmd_start, "begin": cmd_begin, "propose": cmd_propose, "confirm": cmd_confirm,
           "done": cmd_done, "reopen": cmd_reopen, "status": cmd_status, "render": cmd_render,
           "check": cmd_check, "audit": cmd_audit, "library": cmd_library, "catalog": cmd_catalog, "update": cmd_update, "publish": cmd_publish, "runs": cmd_runs, "uninstall": cmd_uninstall, "config": cmd_config}[a.cmd]

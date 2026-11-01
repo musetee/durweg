@@ -12,6 +12,7 @@ folders in the projects are the record, and `durweg runs --rebuild <folder>` reb
 
 import os
 import re
+import sys
 from pathlib import Path
 
 from . import workflow
@@ -286,6 +287,33 @@ def _remote_default(dest, url):
     return None
 
 
+PLUGIN_EXAMPLE = "write-your-method"
+PLUGIN_NOTE = "comes with the Durweg plugin (updated with /plugin update)"
+
+
+def ensure_plugin_example(root):
+    """The plugin's first run (plan 4.3): when there is no library yet, make it with the example
+    write-your-method from the plugin. Later only follow the plugin folder (it changes with
+    /plugin update) for that entry; anything else in the library is left alone, and a removed
+    example is not put back. Problems are reported on stderr and never stop the command."""
+    path = str(Path(os.path.normpath(Path(root) / "examples" / PLUGIN_EXAMPLE)))
+    p = home() / "library.json"
+    try:
+        with _IndexLock("library"):
+            if not p.is_file():
+                data = {"format": 1, "workflows": {
+                    PLUGIN_EXAMPLE: {"path": path, "source": "plugin-example", "added": now()}}}
+            else:
+                data = _load("library.json", "workflows")
+                e = data["workflows"].get(PLUGIN_EXAMPLE)
+                if not e or e.get("source") != "plugin-example" or e.get("path") == path:
+                    return
+                e["path"] = path
+            write_json(p, data)
+    except (WfError, OSError) as e:
+        print(f"durweg: could not set up the example {PLUGIN_EXAMPLE} in the library ({e})", file=sys.stderr)
+
+
 def update_one(name, entry):
     """(status, detail, new_fields): status updated | unchanged | skipped | failed.
     The new version is prepared in a copy of the clone, checked, and only then swapped in under
@@ -293,6 +321,8 @@ def update_one(name, entry):
     import shutil
     import uuid
     from . import gitops
+    if entry.get("source") == "plugin-example":
+        return "skipped", PLUGIN_NOTE, {}
     if entry.get("source") != "git":
         return "skipped", "your own folder: Durweg does not change it", {}
     if not managed(entry):

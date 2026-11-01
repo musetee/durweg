@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+os.environ["DURWEG_PLUGIN"] = "0"     # the checkout has .claude-plugin/: the tests are not the plugin (CP-R-002)
 
 from durweg.cli import main  # noqa: E402
 

@@ -10,7 +10,7 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SKIP = {".git", "dist", "__pycache__", "runs", ".github"}
+SKIP = {".git", "dist", "__pycache__", "runs", ".github", ".claude-plugin", ".gitattributes"}   # as git archive (.gitattributes)
 
 
 def files():
