@@ -4,12 +4,12 @@
 
 [💻 Requirements](#-system-requirements) · [🧭 Install](#-install) · [📅 Every day](#-every-day) · [🚀 Example](#-example-write-down-your-method) · [🔐 Public and private](#-public-and-private-workflows) · [🙋 I want to](#-i-want-to-) · [🛠️ Common problems](#%EF%B8%8F-common-problems) · **[📚 Workflows you can install](https://github.com/musetee/durweg-workflows)**
 
-**Durweg puts you in control of AI workflows: work is delivered step by step, and you review, request changes, and approve before it moves past your checkpoints.**
+**Durweg makes AI workflows controllable: AI delivers step by step, and at the checkpoints you choose you review the results, request changes and approve before it goes on, so AI and you work together like a pipeline.**
 
 For example, a weekly report:
 
 ```mermaid
-flowchart TD
+flowchart LR
     A["① Collect this week's material"]
     B["② Write the draft"]
     C["③ You review the draft"]
