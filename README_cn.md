@@ -8,10 +8,10 @@
 
 ```mermaid
 flowchart TD
-    A["① 整理本周材料<br/>🧩 表格 skill"]
+    A["① 整理本周材料"]
     B["② 写草稿"]
     C["③ 你确认草稿"]
-    D["④ 做成 PPT<br/>🧩 PPT skill"]
+    D["④ 做成 PPT"]
     E["交付，并留下各步记录"]
 
     A -->|验收合格| B
@@ -20,7 +20,7 @@ flowchart TD
     D -->|验收合格| E
 ```
 
-每一步通过验收才往下走；检查没过，或你要求修改，就修改后再验收。步骤里可以用不同的 skill 和 plugin，Durweg 管先后顺序、验收、你的确认和记录。这些用 skill 或 plugin 也能自己搭；Durweg 把它做成了现成工具，Claude Code 和 Codex 都能用。
+每一步通过验收才往下走；检查没过，或你要求修改，就修改后再验收。每一步可以使用已有的 skill 和 plugin；Durweg 管先后顺序、验收、你的确认和记录。
 
 ## 💻 系统要求
 

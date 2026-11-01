@@ -8,10 +8,10 @@ For example, a weekly report:
 
 ```mermaid
 flowchart TD
-    A["① Collect this week's material<br/>🧩 Spreadsheet skill"]
+    A["① Collect this week's material"]
     B["② Write the draft"]
     C["③ You review the draft"]
-    D["④ Make the slides<br/>🧩 Slides skill"]
+    D["④ Make the slides"]
     E["Deliver, with a record of each step"]
 
     A -->|Passes checks| B
@@ -20,7 +20,7 @@ flowchart TD
     D -->|Passes checks| E
 ```
 
-Each step must pass before work moves on. If a check fails or you request changes, the work is revised and reviewed again. Steps can use different skills and plugins; Durweg manages the order, checks, your approval and records. You could build this yourself with skills or plugins; Durweg is the ready-made tool for it, and works with Claude Code and Codex alike.
+Each step must pass before work moves on. If a check fails or you request changes, the work is revised and reviewed again. Each step can use existing skills and plugins; Durweg manages the order, checks, your approval and records.
 
 ## 💻 System requirements
 
