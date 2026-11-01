@@ -10,7 +10,7 @@ from pathlib import Path
 
 from . import gates, library, workflow
 from .state import STATE, RunState, replay
-from .util import RunLock, WfError, now, plugin_root, sha256_json, write_json
+from .util import PLUGIN_LABEL, RunLock, WfError, now, plugin_host, plugin_root, sha256_json, write_json
 
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
@@ -508,7 +508,7 @@ def main(argv=None):
     from . import __version__
     root = plugin_root()
     ap.add_argument("--version", action="version",
-                    version=f"durweg {__version__}" + (" (Claude Code plugin)" if root else ""))
+                    version=f"durweg {__version__}" + (PLUGIN_LABEL[plugin_host(root)] if root else ""))
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("start", help="start a run of a workflow")
     p.add_argument("workflow", help="a name in the library, or a folder with workflow.json (./name, /path)")
@@ -581,7 +581,26 @@ def main(argv=None):
     except WfError as e:
         print(str(e), file=sys.stderr)
         return getattr(e, "exit_code", 1)
+    except OSError as e:
+        if not cannot_write_home(e):
+            raise
+        print(cannot_write_home(e), file=sys.stderr)
+        return 1
     return rc or 0
+
+
+def cannot_write_home(e):
+    """The message when e is "may not write" inside ~/Durweg (a sandbox, e.g. Codex's), else None.
+    Linux and WSL report EROFS (30), macOS's sandbox EPERM (1), plain permissions EACCES (13)."""
+    if getattr(e, "errno", None) not in (1, 13, 30) or not e.filename:
+        return None
+    home = os.path.realpath(library.home())
+    target = os.path.realpath(e.filename)
+    if target != home and not target.startswith(home + os.sep):
+        return None
+    return (f"durweg cannot write to {library.home()} ({e.strerror}). If a sandbox runs this command "
+            "(for example Codex's), approve the command when you are asked, or let the sandbox write to "
+            "that folder; see the install page of the Durweg plugin.")
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ def current_platform():
 
 
 def plugin_root():
-    """The folder of this Durweg when it runs as the Claude Code plugin, else None.
+    """The folder of this Durweg when it runs as a plugin (Claude Code or Codex), else None.
     The plugin is the repository with .claude-plugin/plugin.json; the installer's package leaves
     .claude-plugin out (.gitattributes export-ignore, tools/package.py). DURWEG_PLUGIN=0|1 overrides
     the check (tests; plan CP-R-002)."""
@@ -44,6 +44,37 @@ def plugin_root():
     if flag == "1":
         return root
     return root if (root / ".claude-plugin" / "plugin.json").is_file() else None
+
+
+def plugin_host(root=None):
+    """Which agent installed this plugin: "claude", "codex", or None when the folder does not say.
+    A plugin in an agent's cache lies at <home>/plugins/cache/<marketplace>/<plugin>/<version>;
+    <home> is Codex's (CODEX_HOME, or ~/.codex) or Claude Code's (CLAUDE_CONFIG_DIR, or ~/.claude),
+    compared after resolving links on both sides. DURWEG_PLUGIN_HOST=claude|codex overrides (tests)."""
+    flag = os.environ.get("DURWEG_PLUGIN_HOST", "")
+    if flag in ("claude", "codex"):
+        return flag
+    root = root or plugin_root()
+    if root is None:
+        return None
+    root = Path(os.path.realpath(root))
+    if len(root.parents) < 5 or root.parents[2].name != "cache" or root.parents[3].name != "plugins":
+        return None
+    agent_home = root.parents[4]
+
+    def same(path):
+        try:
+            return Path(os.path.realpath(os.path.expanduser(path))) == agent_home
+        except (OSError, ValueError):
+            return False
+    for host, env, folder in (("codex", "CODEX_HOME", ".codex"), ("claude", "CLAUDE_CONFIG_DIR", ".claude")):
+        if (os.environ.get(env) and same(os.environ[env])) or same(Path.home() / folder) \
+                or agent_home.name == folder:
+            return host
+    return None
+
+
+PLUGIN_LABEL = {"claude": " (Claude Code plugin)", "codex": " (Codex plugin)", None: " (plugin)"}
 
 
 def now():

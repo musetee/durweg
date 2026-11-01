@@ -3,7 +3,7 @@
   "owner": {
     "name": "musetee"
   },
-  "description": "Durweg: the Claude Code plugin for running your own workflows step by step.",
+  "description": "Durweg as a plugin, for Claude Code and Codex: run your own workflows step by step.",
   "plugins": [
     {
       "name": "durweg",

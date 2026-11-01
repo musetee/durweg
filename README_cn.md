@@ -34,12 +34,13 @@ flowchart TD
 
 ## 🧭 安装
 
-**两种方式，选一种就行（不是先后两步）。** 装好的 Durweg 和 `~/Durweg` 文件夹都一样。
+**三种方式，选一种就行（不是先后几步）。** 装好的 Durweg 和 `~/Durweg` 文件夹都一样。
 
 | 你的情况 | 用哪种 |
 | :--- | :--- |
 | 已经在用 Claude Code | [方式 A：装成 Claude Code 插件](#方式-a装成-claude-code-插件) |
-| 电脑上还没有 AI agent，或者用的是 Codex、Antigravity | [方式 B：用安装程序](#方式-b用安装程序) |
+| 已经在用 Codex（Mac、Linux 或 WSL） | [方式 B：装成 Codex 插件](#方式-b装成-codex-插件) |
+| 电脑上还没有 AI agent，在 Windows 本身上用 Codex，或者用 Antigravity | [方式 C：用安装程序](#方式-c用安装程序) |
 
 ### 方式 A：装成 Claude Code 插件
 
@@ -51,9 +52,21 @@ flowchart TD
 
 更新、卸载、旧版 Claude Code 怎么装：见[把 Durweg 装成 Claude Code 插件](docs/install-plugin_cn.md)。
 
-✅ 装好了：下面的方式 B 不用看，接着看[每天怎么用](#-每天怎么用)。
+✅ 装好了：下面的方式 B 和 C 不用看，接着看[每天怎么用](#-每天怎么用)。
 
-### 方式 B：用安装程序
+### 方式 B：装成 Codex 插件
+
+如果你已经在用 Codex CLI（Mac、Linux 或 WSL），并且有 Python 3.9 或更新版本和 git：
+
+1. 在终端里（不是在 Codex 里）运行 `codex plugin marketplace add musetee/durweg`。
+2. 运行 `codex plugin add durweg@durweg`。
+3. 新开一个 Codex 会话，对它说：`Run write-your-method with durweg.`
+
+Codex 的沙盒里 `~/Durweg` 是只读的，所以往那里写的命令会请你批准。详细说明、更新和卸载：见[把 Durweg 装成 Codex 插件](docs/install-codex-plugin_cn.md)。
+
+✅ 装好了：下面的方式 C 不用看，接着看[每天怎么用](#-每天怎么用)。
+
+### 方式 C：用安装程序
 
 Windows、Mac、Linux 都能用，电脑上还没有 AI agent 也可以。
 

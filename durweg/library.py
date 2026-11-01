@@ -288,7 +288,13 @@ def _remote_default(dest, url):
 
 
 PLUGIN_EXAMPLE = "write-your-method"
-PLUGIN_NOTE = "comes with the Durweg plugin (updated with /plugin update)"
+PLUGIN_NOTE = "comes with the Durweg plugin (updated with the plugin)"
+
+
+def _versions_dir(example):
+    """<plugin cache>/<marketplace>/<plugin> for <...>/<version>/examples/<name>: the folder that
+    holds one agent's versions of this plugin. Both sides go through realpath (CX-R round 3)."""
+    return os.path.realpath(os.path.join(example, os.pardir, os.pardir, os.pardir))
 
 
 def ensure_plugin_example(root):
@@ -296,7 +302,10 @@ def ensure_plugin_example(root):
     write-your-method from the plugin. Later only follow the plugin folder (it changes with
     /plugin update) for that entry, and take over a write-your-method whose folder is gone (the
     installer's, after durweg uninstall); anything else in the library is left alone, and a
-    removed example is not put back. Problems are reported on stderr and never stop the command."""
+    removed example is not put back. With both a Claude Code and a Codex plugin, the entry follows
+    updates of the plugin it points to and is left alone while that plugin is still there, so the
+    two do not take it from each other on every run. Problems are reported on stderr and never stop
+    the command."""
     path = str(Path(os.path.normpath(Path(root) / "examples" / PLUGIN_EXAMPLE)))
     p = home() / "library.json"
     try:
@@ -310,9 +319,12 @@ def ensure_plugin_example(root):
                 if not e:
                     return                  # never there, or removed by the user: not put back
                 if e.get("source") == "plugin-example":
-                    if e.get("path") == path:
+                    old = e.get("path", "")
+                    if old == path:
                         return
-                    e["path"] = path        # /plugin update moved the plugin folder
+                    if Path(old).exists() and _versions_dir(old) != _versions_dir(path):
+                        return              # the other agent's plugin, still there: left alone
+                    e["path"] = path        # gone, or the same plugin in another version (an update)
                 elif Path(e.get("path", "")).exists():
                     return                  # the installer's or the user's own: left alone
                 else:                       # its folder is gone (e.g. after durweg uninstall)
@@ -321,6 +333,9 @@ def ensure_plugin_example(root):
             write_json(p, data)
     except (WfError, OSError) as e:
         print(f"durweg: could not set up the example {PLUGIN_EXAMPLE} in the library ({e})", file=sys.stderr)
+        if isinstance(e, OSError) and getattr(e, "errno", None) in (1, 13, 30):
+            print("durweg: a sandbox may not let it write there (for example Codex's): approve the command "
+                  "when you are asked, or see the install page of the Durweg plugin", file=sys.stderr)
 
 
 def update_one(name, entry):

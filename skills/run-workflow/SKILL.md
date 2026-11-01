@@ -8,6 +8,18 @@ description: Run a user's workflow step by step with the durweg tool - begin eac
 A workflow is a fixed way of working that the user wrote down. `durweg` keeps the order, checks each
 step's gates and records what happened, so the user can trust that every step was really done.
 Work only through these commands; they print `ok run=<id> event=<n>` when they succeed.
+
+**Finding `durweg`.** Run `command -v durweg` first. If there is no `durweg` (Codex does not put a
+plugin's `bin/` on the PATH), use the one in this plugin: this SKILL.md is
+`<plugin folder>/skills/run-workflow/SKILL.md`, so the command is `<plugin folder>/bin/durweg`. If
+you do not know where this SKILL.md is, find the newest copy with this one line (Linux, macOS, WSL):
+`ls -d "${CODEX_HOME:-$HOME/.codex}"/plugins/cache/durweg/durweg/*/bin/durweg 2>/dev/null | sort -V | tail -1`
+Print the full path once, then write that path, in quotes, wherever these instructions say `durweg`
+(every command runs in a new shell, so a shell variable does not carry over). If that path is gone
+later (an update removes the old version's folder), find it again the same way; after an update a
+new session is best. If neither is there, tell the user Durweg is not installed and stop.
+If a command says it cannot write to `~/Durweg` (a sandbox), tell the user that sentence: they can
+approve the command, or follow the install page of the plugin.
 Before the first run, `durweg config` shows the language to talk to the user in (`zh` Chinese,
 `en` English). If it says `not set yet`, ask the user once, in the language they are writing in,
 whether they want Chinese or English, then `durweg config language zh|en`. Commands, file names and

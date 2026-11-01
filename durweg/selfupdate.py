@@ -110,9 +110,13 @@ def run_installer(version):
 
 def platform():
     """(status, detail): updated | unchanged | skipped | failed."""
-    from .util import plugin_root
+    from .util import plugin_host, plugin_root
     if plugin_root() is not None:          # first: the plugin never runs the installer (plan 4.4)
-        return "skipped", "this Durweg is the Claude Code plugin; update it with /plugin update durweg"
+        return "skipped", {
+            "claude": "this Durweg is the Claude Code plugin; update it with /plugin update durweg",
+            "codex": "this Durweg is the Codex plugin; update it with: codex plugin marketplace upgrade durweg "
+                     "(then start a new Codex session)",
+            None: "this Durweg is a plugin; update it with your agent's plugin command"}[plugin_host()]
     manifest = installed()
     if manifest is None:
         return "skipped", "this Durweg was not installed by the installer (no ~/Durweg/.install.json)"

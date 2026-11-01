@@ -1,4 +1,4 @@
-"""Durweg as the Claude Code plugin: the plugin mode, the launchers, the release packages."""
+"""Durweg as a plugin (Claude Code, Codex): the plugin mode, the launchers, the release packages."""
 
 import json
 import os
@@ -22,7 +22,8 @@ class PluginCopy(unittest.TestCase):
 
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="durweg-plugin-")).resolve()   # durweg records real paths (macOS /private, Windows long names)
-        self.plugin = self.tmp / "cache" / "durweg" / "durweg" / "1.0.0"
+        # as Claude Code keeps it: <CLAUDE_CONFIG_DIR>/plugins/cache/<marketplace>/<plugin>/<version>
+        self.plugin = self.tmp / ".claude" / "plugins" / "cache" / "durweg" / "durweg" / "1.0.0"
         for part in ("durweg", "bin", "examples", "skills", ".claude-plugin"):
             shutil.copytree(ROOT / part, self.plugin / part,
                             ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
@@ -210,14 +211,14 @@ class Launchers(unittest.TestCase):
         r = self.sh_run('type -a durweg; durweg --version')
         print(f"\n[PW-R-001] type -a durweg / durweg --version on {sys.platform}:\n{r.stdout}{r.stderr}")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("(Claude Code plugin)", r.stdout)
+        self.assertRegex(r.stdout, r"durweg [0-9.]+ \(.*plugin\)")
 
     def test_python3_fails_then_python(self):
         self.fake_sh("python3", works=False)
         self.fake_sh("python", works=True)
         r = self.sh_run('"$(u "$PLUGIN_BIN")/durweg" --version')
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("(Claude Code plugin)", r.stdout)
+        self.assertRegex(r.stdout, r"durweg [0-9.]+ \(.*plugin\)")
         self.assertIn("python3", self.mark.read_text())          # tried first, then left alone
 
     def test_none_fits(self):
@@ -262,7 +263,7 @@ class Launchers(unittest.TestCase):
         self.fake_cmd("python", works=True)
         r = self.cmd_run("--version")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("(Claude Code plugin)", r.stdout)
+        self.assertRegex(r.stdout, r"durweg [0-9.]+ \(.*plugin\)")
         self.assertIn("py", self.mark.read_text())
 
     @unittest.skipUnless(WINDOWS, "cmd")
@@ -309,6 +310,130 @@ class Launchers(unittest.TestCase):
             out = subprocess.run(["git", "-C", str(ROOT), "ls-files", "--eol", "bin/durweg"],
                                  capture_output=True, text=True).stdout
             self.assertIn("eol=lf", out)
+
+
+class Hosts(unittest.TestCase):
+    """Which agent installed the plugin (Codex or Claude Code), its labels and update hint, and the
+    example entry when both plugins are installed (plan durweg-dev Codex plugin, R3, R4)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="durweg-hosts-")).resolve()
+        self.home = self.tmp / "Durweg"
+        self.env = {k: v for k, v in os.environ.items()
+                    if k not in ("DURWEG_PLUGIN", "DURWEG_PLUGIN_HOST", "CODEX_HOME", "CLAUDE_CONFIG_DIR")}
+        self.env.update(HOME=str(self.tmp / "home"), USERPROFILE=str(self.tmp / "home"),
+                        DURWEG_HOME=str(self.home), DURWEG_PUBLIC_CATALOG=str(self.tmp / "none.git"),
+                        DURWEG_UPDATE_INSTALLER=str(self.tmp / "no-installer.sh"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def copy(self, agent_home, version="1.0.0"):
+        root = agent_home / "plugins" / "cache" / "durweg" / "durweg" / version
+        for part in ("durweg", "bin", "examples", "skills", ".claude-plugin"):
+            shutil.copytree(ROOT / part, root / part, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        return root
+
+    def run_durweg(self, root, *args, expect=0):
+        r = subprocess.run([sys.executable, str(root / "bin" / "durweg"), *args], env=self.env,
+                           capture_output=True, text=True, encoding="utf-8")
+        if expect is not None:
+            self.assertEqual(r.returncode, expect, r.stdout + r.stderr)
+        return r
+
+    def example(self):
+        return json.loads((self.home / "library.json").read_text(encoding="utf-8"))["workflows"][EXAMPLE]["path"]
+
+    def test_codex_plugin(self):
+        root = self.copy(self.tmp / "home" / ".codex")
+        self.assertIn("(Codex plugin)", self.run_durweg(root, "--version").stdout)
+        r = self.run_durweg(root, "update")
+        self.assertIn("codex plugin marketplace upgrade durweg", r.stdout)
+        self.assertNotIn("/plugin update", r.stdout)
+
+    def test_codex_home_through_a_link_and_an_unusual_name(self):
+        real = self.tmp / "dotfiles" / "codex-config"
+        real.mkdir(parents=True)
+        link = self.tmp / "my-codex"
+        link.symlink_to(real)
+        self.env["CODEX_HOME"] = str(link)
+        root = self.copy(real)
+        self.assertIn("(Codex plugin)", self.run_durweg(root, "--version").stdout)
+
+    def test_a_folder_outside_any_agent_cache_says_plugin_only(self):
+        root = self.tmp / "somewhere" / "durweg"
+        for part in ("durweg", "bin", "examples", "skills", ".claude-plugin"):
+            shutil.copytree(ROOT / part, root / part, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        self.assertIn("(plugin)", self.run_durweg(root, "--version").stdout)
+        r = self.run_durweg(root, "update")
+        self.assertIn("your agent's plugin command", r.stdout)
+
+    def test_host_override(self):
+        root = self.copy(self.tmp / "home" / ".claude")
+        self.env["DURWEG_PLUGIN_HOST"] = "codex"
+        self.assertIn("(Codex plugin)", self.run_durweg(root, "--version").stdout)
+
+    def test_both_plugins_do_not_take_the_example_from_each_other(self):
+        claude = self.copy(self.tmp / "home" / ".claude")
+        codex = self.copy(self.tmp / "home" / ".codex")
+        self.run_durweg(claude, "library", "list")
+        first = self.example()
+        self.assertIn(".claude", first)
+        self.run_durweg(codex, "library", "list")
+        self.run_durweg(claude, "library", "list")
+        self.assertEqual(self.example(), first)                 # left alone while it is there
+        shutil.rmtree(claude)                                   # that plugin is removed
+        self.run_durweg(codex, "library", "list")
+        self.assertIn(".codex", self.example())                 # the other one takes over
+
+    def test_an_update_that_keeps_the_old_version_is_followed(self):
+        old = self.copy(self.tmp / "home" / ".claude", "1.0.0")
+        new = self.copy(self.tmp / "home" / ".claude", "1.1.0")  # Claude Code keeps old versions
+        self.run_durweg(old, "library", "list")
+        self.assertIn("1.0.0", self.example())
+        self.run_durweg(new, "library", "list")
+        self.assertIn("1.1.0", self.example())
+
+    @unittest.skipIf(os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0),
+                     "read-only folders: POSIX, not as root")
+    def test_a_read_only_home_gets_a_sentence_not_a_traceback(self):
+        root = self.copy(self.tmp / "home" / ".codex")
+        self.home.mkdir()
+        self.home.chmod(0o555)
+        try:
+            r = self.run_durweg(root, "config", "language", "zh", expect=1)
+        finally:
+            self.home.chmod(0o755)
+        self.assertIn("durweg cannot write to", r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+
+
+@unittest.skipIf(os.name == "nt", "the one line in the skill is for Linux, macOS and WSL")
+class SkillLocator(unittest.TestCase):
+    """The fallback line in skills/run-workflow/SKILL.md, read from the file and run as written."""
+
+    def line(self):
+        text = (ROOT / "skills" / "run-workflow" / "SKILL.md").read_text(encoding="utf-8")
+        return next(l.strip().strip("`") for l in text.splitlines() if "sort -V" in l)
+
+    def run_line(self, codex_home):
+        r = subprocess.run(["sh", "-c", self.line()], env=dict(os.environ, CODEX_HOME=str(codex_home)),
+                           capture_output=True, text=True)
+        return r.stdout.strip()
+
+    def test_newest_version_of_our_marketplace_only(self):
+        tmp = Path(tempfile.mkdtemp(prefix="durweg locator ")).resolve()   # a space on purpose
+        self.addCleanup(shutil.rmtree, tmp, True)
+        for rel in ("durweg/durweg/1.9.0", "durweg/durweg/1.10.0", "zfork/durweg/9.0.0"):
+            b = tmp / "plugins" / "cache" / rel / "bin"
+            b.mkdir(parents=True)
+            (b / "durweg").write_text("#!/bin/sh\n")
+        self.assertEqual(self.run_line(tmp), str(tmp / "plugins/cache/durweg/durweg/1.10.0/bin/durweg"))
+
+    def test_nothing_installed_prints_nothing(self):
+        tmp = Path(tempfile.mkdtemp(prefix="durweg-locator-")).resolve()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        self.assertEqual(self.run_line(tmp), "")
 
 
 class ReleasePackage(unittest.TestCase):

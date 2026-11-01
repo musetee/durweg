@@ -34,12 +34,13 @@ Each step must pass before work moves on. If a check fails or you request change
 
 ## 🧭 Install
 
-**Two ways: pick one (they are not two steps).** Both give you the same Durweg and the same `~/Durweg` folder.
+**Three ways: pick one (they are not steps in a row).** All give you the same Durweg and the same `~/Durweg` folder.
 
 | Your situation | Use |
 | :--- | :--- |
 | You already use Claude Code | [Option A: as a Claude Code plugin](#option-a-as-a-claude-code-plugin) |
-| No AI agent on your computer yet, or you use Codex or Antigravity | [Option B: with the installer](#option-b-with-the-installer) |
+| You already use Codex (on Mac, Linux or WSL) | [Option B: as a Codex plugin](#option-b-as-a-codex-plugin) |
+| No AI agent on your computer yet, Codex on Windows itself, or Antigravity | [Option C: with the installer](#option-c-with-the-installer) |
 
 ### Option A: as a Claude Code plugin
 
@@ -53,9 +54,22 @@ If you already use Claude Code (on Windows, Mac, Linux or WSL) and have Python 3
 Updating, removing and an older Claude Code:
 [Installing Durweg as a Claude Code plugin](docs/install-plugin.md).
 
-✅ Done: skip Option B below and go on with [Every day](#-every-day).
+✅ Done: skip Options B and C below and go on with [Every day](#-every-day).
 
-### Option B: with the installer
+### Option B: as a Codex plugin
+
+If you already use the Codex CLI (on Mac, Linux or WSL) and have Python 3.9 or newer and git:
+
+1. In a terminal (not inside Codex), run `codex plugin marketplace add musetee/durweg`.
+2. Run `codex plugin add durweg@durweg`.
+3. Start a new Codex session and tell it: `Run write-your-method with durweg.`
+
+Codex keeps `~/Durweg` read-only in its sandbox, so it asks you to approve the commands that write
+there. Details, updating and removing: [Installing Durweg as a Codex plugin](docs/install-codex-plugin.md).
+
+✅ Done: skip Option C below and go on with [Every day](#-every-day).
+
+### Option C: with the installer
 
 For Windows, Mac and Linux, also when you have no AI agent yet.
 

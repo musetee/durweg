@@ -4,7 +4,7 @@
 
 如果你已经在用 Claude Code，可以在 Claude Code 里用一条命令装好 Durweg：不用下载文件，也不用另开终端。装好后的 `durweg` 命令和 skill 跟安装器装的一样，你的工作流也照样放在 `~/Durweg` 文件夹里。
 
-插件支持 **Windows、macOS、Linux 和 Windows 里的 WSL**。
+插件支持 **Windows、macOS、Linux 和 Windows 里的 WSL**。用的是 Codex 的话，见[把 Durweg 装成 Codex 插件](install-codex-plugin_cn.md)。
 
 ## 💻 需要什么
 

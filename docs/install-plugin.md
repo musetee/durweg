@@ -6,7 +6,8 @@ If you already use Claude Code, you can install Durweg from inside it with one c
 download, no second terminal. You get the same `durweg` command and the same skills as with the
 installer, and the same `~/Durweg` folder with your workflows.
 
-The plugin works on **Windows, macOS, Linux and WSL on Windows**.
+The plugin works on **Windows, macOS, Linux and WSL on Windows**. Using Codex instead: see
+[Installing Durweg as a Codex plugin](install-codex-plugin.md).
 
 ## 💻 What you need
 
