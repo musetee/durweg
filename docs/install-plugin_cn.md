@@ -18,7 +18,7 @@
 
 ## 🧭 安装
 
-1. 在你平时工作的地方打开 Claude Code。
+1. 在你平时工作的地方打开 Claude Code。在 WSL 里要用 Linux 这边的文件夹（比如 `~/projects/…`），不要用 `/mnt/c/` 下面的 Windows 文件夹：运行记录会放在你打开 Claude Code 的那个文件夹里。
 2. 输入 `/plugin install durweg --marketplace musetee/durweg`，按回车。
 3. 输入 `/reload-plugins`，按回车，让当前会话加载这个插件。
 

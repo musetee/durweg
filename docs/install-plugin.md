@@ -22,7 +22,8 @@ or newer (`! claude update` brings it there).
 
 ## 🧭 Install
 
-1. Open Claude Code where you usually work.
+1. Open Claude Code where you usually work. In WSL, that is a Linux folder such as
+   `~/projects/…`, not a Windows folder under `/mnt/c/`: your runs are kept in the folder you start in.
 2. Type `/plugin install durweg --marketplace musetee/durweg` and press Enter.
 3. Type `/reload-plugins` and press Enter, so that this session sees the plugin.
 

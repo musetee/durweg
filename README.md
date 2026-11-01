@@ -34,6 +34,25 @@ Each step must pass before work moves on. If a check fails or you request change
 
 ## 🧭 Install
 
+There are two ways; both give you the same Durweg and the same `~/Durweg` folder.
+
+### With Claude Code: as a plugin
+
+If you already use Claude Code on a Mac, on Linux or in WSL on Windows, and have Python 3.9 or newer
+and git:
+
+1. In Claude Code, type `/plugin install durweg --marketplace musetee/durweg`.
+2. Type `/reload-plugins`.
+3. Tell Claude: `Run write-your-method with durweg.` It first asks which language you want, then
+   starts the [example](#-example-write-down-your-method).
+
+On Windows itself (not WSL), use the installer below. Updating, removing and an older Claude Code:
+[Installing Durweg as a Claude Code plugin](docs/install-plugin.md).
+
+### With the installer
+
+For Windows, Mac and Linux, also when you have no AI agent yet.
+
 > 🤖 **Rather not do it yourself?** Send this to the AI on your computer (Claude Code, Codex …):
 >
 > `Please install Durweg for me as described in https://github.com/musetee/durweg/blob/main/docs/install-with-your-ai.md`
@@ -121,9 +140,9 @@ you publish a private one, whether to make your private catalog ([publishing](do
 | Compare a run with the agent's own session files | The optional plugin [durweg-audit](https://github.com/musetee/durweg-audit) |
 | Find my settings, cases and run records | [Where your files are](docs/files.md) |
 | Install a ready-made workflow | Tell your agent "Show me the durweg workflows I can install", then `durweg library add <name>` ([catalogs](docs/workflow-format.md#catalogs)) |
-| Update Durweg and the workflows you installed | `durweg update` ([updating](docs/update.md)) |
+| Update Durweg and the workflows you installed | • `durweg update` ([updating](docs/update.md))<br>• As a Claude Code plugin: Durweg itself with `/plugin update durweg` ([plugin](docs/install-plugin.md#-updating-and-removing)) |
 | Share a workflow of yours (on GitHub, public or private) | Tell your agent "Publish <name> with durweg" ([publishing](docs/publish.md)) |
-| Remove Durweg | `durweg uninstall`: keeps `~/Durweg` and your runs ([uninstall](docs/uninstall.md)) |
+| Remove Durweg | • `durweg uninstall`: keeps `~/Durweg` and your runs ([uninstall](docs/uninstall.md))<br>• As a Claude Code plugin: `/plugin uninstall durweg` |
 
 ## 🛠️ Common problems
 

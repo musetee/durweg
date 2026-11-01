@@ -34,6 +34,22 @@ flowchart TD
 
 ## 🧭 安装
 
+有两种装法，装好的 Durweg 和 `~/Durweg` 文件夹都一样。
+
+### 用 Claude Code：装成插件
+
+如果你已经在 Mac、Linux 或 Windows 的 WSL 里用 Claude Code，并且有 Python 3.9 或更新版本和 git：
+
+1. 在 Claude Code 里输入 `/plugin install durweg --marketplace musetee/durweg`。
+2. 输入 `/reload-plugins`。
+3. 对 Claude 说：`Run write-your-method with durweg.` 它会先问你用哪种语言，然后开始[案例](#-案例写下你的方法)。
+
+在 Windows 本身（不是 WSL）上，请用下面的安装程序。更新、卸载、旧版 Claude Code 怎么装：见[把 Durweg 装成 Claude Code 插件](docs/install-plugin_cn.md)。
+
+### 用安装程序
+
+Windows、Mac、Linux 都能用，电脑上还没有 AI agent 也可以。
+
 > 🤖 **嫌麻烦？** 把这句话发给你电脑上的 AI（Claude Code、Codex 等）：
 >
 > `请按 https://github.com/musetee/durweg/blob/main/docs/install-with-your-ai.md 帮我安装 Durweg。`
@@ -99,9 +115,9 @@ agent 告诉你检查结果是 `PASS`，并且“列出我的 durweg 工作流�
 | 把一次运行和 agent 自己的会话记录对照 | 可选插件 [durweg-audit](https://github.com/musetee/durweg-audit) |
 | 找到我的设置、案例和运行记录 | [文件放在哪里](docs/files_cn.md) |
 | 装一个别人做好的工作流 | 对 agent 说“给我看看能装哪些 durweg 工作流”，然后 `durweg library add <名字>`（[目录](docs/workflow-format_cn.md#目录)） |
-| 更新 Durweg 和装好的工作流 | `durweg update`（[更新](docs/update_cn.md)） |
+| 更新 Durweg 和装好的工作流 | • `durweg update`（[更新](docs/update_cn.md)）<br>• 装成 Claude Code 插件的：Durweg 本身用 `/plugin update durweg` 更新（[插件](docs/install-plugin_cn.md#-更新和卸载)） |
 | 分享你自己的工作流（放到 GitHub，公开或私有） | 对 agent 说“用 durweg 发布 <名字>”（[发布](docs/publish_cn.md)） |
-| 卸载 | `durweg uninstall`：保留 `~/Durweg` 和你的运行记录（[卸载](docs/uninstall_cn.md)） |
+| 卸载 | • `durweg uninstall`：保留 `~/Durweg` 和你的运行记录（[卸载](docs/uninstall_cn.md)）<br>• 装成 Claude Code 插件的：`/plugin uninstall durweg` |
 
 ## 🛠️ 常见问题
 
