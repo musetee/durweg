@@ -2,11 +2,22 @@
 
 # Durweg
 
-**Durweg turns the way you always do a piece of work into a workflow that AI agents (Claude Code, Codex) follow step by step every time, without skipping steps or deciding for you, so their output is stable.**
+**Write down how you do a piece of work as a work contract: the AI follows it step by step, and a step counts as done only when it passes.**
 
-Given only instructions (a skill), an agent can skip a step or decide for you, and afterwards you
-cannot tell. With Durweg each step must pass its checks before the next one starts, the agent stops
-and asks you where your method says you decide, and every run leaves a record you can check.
+For example, a weekly report:
+
+```mermaid
+flowchart TD
+    M["Your method = the work contract"] --> S1["① Collect this week's material"]
+    S1 -->|passes its check| S2["② Write the draft"]
+    S1 -.->|fails: redo| S1
+    S2 -->|passes its check| S3["③ You confirm it"]
+    S2 -.->|fails: redo| S2
+    S3 -->|you say yes| D["✅ Delivered, with a record"]
+    S3 -.->|you want changes| S2
+```
+
+You could build this yourself with skills; Durweg is the ready-made tool for it.
 
 ## 💻 System requirements
 
