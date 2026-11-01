@@ -2,6 +2,8 @@
 
 # Durweg
 
+[💻 Requirements](#-system-requirements) · [🧭 Install](#-install) · [📅 Every day](#-every-day) · [🚀 Example](#-example-write-down-your-method) · [🔐 Public and private](#-public-and-private-workflows) · [🙋 I want to](#-i-want-to-) · [🛠️ Common problems](#%EF%B8%8F-common-problems) · **[📚 Workflows you can install](https://github.com/musetee/durweg-workflows)**
+
 **Durweg puts you in control of AI workflows: work is delivered step by step, and you review, request changes, and approve before it moves past your checkpoints.**
 
 For example, a weekly report:
@@ -102,7 +104,7 @@ Your method can be shared with others, or kept to yourself:
 | | Public | Private |
 | :--- | :--- | :--- |
 | **Kept in** | A public GitHub repository | Your private GitHub repository |
-| **Can be listed in** | The public catalog: once accepted, anyone can install it by name | Your private catalog |
+| **Can be listed in** | The [public catalog](https://github.com/musetee/durweg-workflows): once accepted, anyone can install it by name | Your private catalog |
 | **Who can use it** | Everyone | • Only you (and whoever you give access on GitHub)<br>• Another computer: once it has access and your private catalog is added, it installs and updates it by name |
 
 Tell your agent "Publish <name> with durweg"; it asks whether public or private, and the first time
