@@ -1,6 +1,6 @@
 {
   "name": "durweg",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Run your own workflows step by step: the agent shows each result, you check, change and confirm before it goes on.",
   "author": {
     "name": "musetee"

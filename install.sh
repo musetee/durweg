@@ -14,7 +14,7 @@
 #   DURWEG_UPDATE=1 (set by durweg update: keep the last choices, ask nothing)
 set -uo pipefail
 
-VERSION="${DURWEG_VERSION:-v1.2.0}"
+VERSION="${DURWEG_VERSION:-v1.2.1}"
 REPO="musetee/durweg"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}/durweg"
 BIN="$HOME/.local/bin"
