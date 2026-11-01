@@ -8,16 +8,18 @@ For example, a weekly report:
 
 ```mermaid
 flowchart TD
-    M["Your method = the work contract"] --> S1["① Collect this week's material"]
+    M["Your method = the work contract"] --> S1["① Collect this week's material<br>🧩 a spreadsheet skill reads the data"]
     S1 -->|passes its check| S2["② Write the draft"]
     S1 -.->|fails: redo| S1
     S2 -->|passes its check| S3["③ You confirm it"]
     S2 -.->|fails: redo| S2
-    S3 -->|you say yes| D["✅ Delivered, with a record"]
     S3 -.->|you want changes| S2
+    S3 -->|you say yes| S4["④ Make the slides<br>🧩 a slides skill"]
+    S4 -->|passes its check| D["✅ Delivered, with a record"]
+    S4 -.->|fails: redo| S4
 ```
 
-You could build this yourself with skills; Durweg is the ready-made tool for it.
+Each step can use a skill the AI already has (🧩); Durweg keeps the order, the checks and your confirmation. You could build this yourself with skills; Durweg is the ready-made tool for it.
 
 ## 💻 System requirements
 
