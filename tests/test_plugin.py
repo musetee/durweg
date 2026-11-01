@@ -69,10 +69,22 @@ class PluginCopy(unittest.TestCase):
 
     def test_an_example_from_elsewhere_is_left_alone(self):
         self.home.mkdir(parents=True)
+        (self.tmp / "mine").mkdir()
         own = {"path": str(self.tmp / "mine"), "source": "folder", "added": "x"}
         (self.home / "library.json").write_text(json.dumps({"format": 1, "workflows": {EXAMPLE: own}}))
         self.run_durweg("library", "list")
         self.assertEqual(self.library()[EXAMPLE], own)
+
+    def test_an_example_whose_folder_is_gone_is_taken_over(self):
+        # the installer's example after `durweg uninstall`: ~/Durweg stays, its folder does not
+        self.home.mkdir(parents=True)
+        gone = {"path": str(self.tmp / "share" / "durweg" / "current" / "examples" / EXAMPLE),
+                "source": "folder", "added": "x"}
+        (self.home / "library.json").write_text(json.dumps({"format": 1, "workflows": {EXAMPLE: gone}}))
+        self.run_durweg("library", "list")
+        e = self.library()[EXAMPLE]
+        self.assertEqual(e["source"], "plugin-example")
+        self.assertEqual(os.path.normpath(e["path"]), os.path.normpath(self.example_path()))
 
     def test_a_removed_example_is_not_put_back(self):
         self.run_durweg("library", "list")

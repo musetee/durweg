@@ -294,8 +294,9 @@ PLUGIN_NOTE = "comes with the Durweg plugin (updated with /plugin update)"
 def ensure_plugin_example(root):
     """The plugin's first run (plan 4.3): when there is no library yet, make it with the example
     write-your-method from the plugin. Later only follow the plugin folder (it changes with
-    /plugin update) for that entry; anything else in the library is left alone, and a removed
-    example is not put back. Problems are reported on stderr and never stop the command."""
+    /plugin update) for that entry, and take over a write-your-method whose folder is gone (the
+    installer's, after durweg uninstall); anything else in the library is left alone, and a
+    removed example is not put back. Problems are reported on stderr and never stop the command."""
     path = str(Path(os.path.normpath(Path(root) / "examples" / PLUGIN_EXAMPLE)))
     p = home() / "library.json"
     try:
@@ -306,9 +307,17 @@ def ensure_plugin_example(root):
             else:
                 data = _load("library.json", "workflows")
                 e = data["workflows"].get(PLUGIN_EXAMPLE)
-                if not e or e.get("source") != "plugin-example" or e.get("path") == path:
-                    return
-                e["path"] = path
+                if not e:
+                    return                  # never there, or removed by the user: not put back
+                if e.get("source") == "plugin-example":
+                    if e.get("path") == path:
+                        return
+                    e["path"] = path        # /plugin update moved the plugin folder
+                elif Path(e.get("path", "")).exists():
+                    return                  # the installer's or the user's own: left alone
+                else:                       # its folder is gone (e.g. after durweg uninstall)
+                    data["workflows"][PLUGIN_EXAMPLE] = {
+                        "path": path, "source": "plugin-example", "added": now()}
             write_json(p, data)
     except (WfError, OSError) as e:
         print(f"durweg: could not set up the example {PLUGIN_EXAMPLE} in the library ({e})", file=sys.stderr)
